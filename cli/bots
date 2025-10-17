@@ -4,6 +4,9 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const chalk = require('chalk');
+const Table = require('cli-table3');
+const ora = require('ora');
 
 const CONFIG_DIR = path.join(os.homedir(), '.config', 'bot-manager');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
@@ -64,55 +67,108 @@ async function apiRequest(method, endpoint, data = null) {
 // Commands
 
 async function login() {
+  console.log(chalk.bold.cyan('\n  BOT MANAGER - Přihlášení\n'));
+
   const readline = require('readline').createInterface({
     input: process.stdin,
     output: process.stdout
   });
 
-  const question = (q) => new Promise(resolve => readline.question(q, resolve));
+  const question = (q) => new Promise(resolve => readline.question(chalk.gray('  ' + q), resolve));
 
   const username = await question('Username: ');
   const password = await question('Password: ');
   readline.close();
+
+  const spinner = ora('Přihlašuji...').start();
 
   try {
     const response = await axios.post(`${API_BASE}/auth/login`, { username, password });
 
     if (response.data.success) {
       saveConfig({ token: response.data.token, user: response.data.user });
-      console.log('✅ Přihlášení úspěšné');
-      console.log(`👤 Uživatel: ${response.data.user.username}`);
+      spinner.succeed(chalk.green('Přihlášení úspěšné'));
+      console.log(chalk.gray(`  Uživatel: ${chalk.white.bold(response.data.user.username)}\n`));
     }
   } catch (error) {
-    console.error('❌ Chyba při přihlášení:', error.response?.data?.message || error.message);
+    spinner.fail(chalk.red('Chyba při přihlášení'));
+    console.error(chalk.red('  ' + (error.response?.data?.message || error.message)) + '\n');
     process.exit(1);
   }
 }
 
 async function list() {
+  const spinner = ora('Načítám boty...').start();
+
   try {
     const data = await apiRequest('GET', '/bots');
     const bots = data.bots;
 
+    spinner.stop();
+    spinner.clear();
+
     if (bots.length === 0) {
-      console.log('📭 Žádné boty');
+      console.log(chalk.yellow('\n  Zatím nemáš žádné boty\n'));
       return;
     }
 
-    console.log('\n🤖 Seznam botů:\n');
-    bots.forEach(bot => {
-      const statusEmoji = bot.status === 'online' ? '🟢' : '🔴';
-      console.log(`${statusEmoji} ${bot.name}`);
-      console.log(`   ID: ${bot.id}`);
-      console.log(`   Typ: ${bot.type === 'nodejs' ? 'Node.js' : 'Python'}`);
-      console.log(`   Status: ${bot.status}`);
-      if (bot.status === 'online') {
-        console.log(`   CPU: ${bot.cpu?.toFixed(1)}% | RAM: ${(bot.memory / 1024 / 1024).toFixed(0)} MB`);
+    console.log(chalk.bold.cyan('\n  BOT MANAGER\n'));
+
+    const table = new Table({
+      head: [
+        chalk.gray('ID'),
+        chalk.gray('Název'),
+        chalk.gray('Typ'),
+        chalk.gray('Status'),
+        chalk.gray('CPU'),
+        chalk.gray('Memory')
+      ],
+      style: {
+        head: [],
+        border: ['gray']
       }
-      console.log('');
     });
+
+    bots.forEach(bot => {
+      const type = bot.type === 'nodejs' ? 'Node.js' : 'Python';
+
+      let status, statusColor;
+      if (bot.status === 'online') {
+        status = '● ONLINE';
+        statusColor = chalk.green;
+      } else if (bot.status === 'stopping') {
+        status = '● STOPPING';
+        statusColor = chalk.yellow;
+      } else if (bot.status === 'errored') {
+        status = '● ERROR';
+        statusColor = chalk.red;
+      } else {
+        status = '● OFFLINE';
+        statusColor = chalk.gray;
+      }
+
+      const cpu = bot.status === 'online' ? `${bot.cpu?.toFixed(1)}%` : '-';
+      const memory = bot.status === 'online' ? `${(bot.memory / 1024 / 1024).toFixed(0)} MB` : '-';
+
+      table.push([
+        chalk.white(bot.id),
+        chalk.white.bold(bot.name),
+        chalk.cyan(type),
+        statusColor(status),
+        bot.status === 'online' ? chalk.blue(cpu) : chalk.gray(cpu),
+        bot.status === 'online' ? chalk.magenta(memory) : chalk.gray(memory)
+      ]);
+    });
+
+    console.log(table.toString());
+
+    const online = bots.filter(b => b.status === 'online').length;
+    const offline = bots.length - online;
+
+    console.log(chalk.gray(`\n  ${bots.length} botů celkem  •  ${chalk.green(online + ' online')}  •  ${chalk.gray(offline + ' offline')}\n`));
   } catch (error) {
-    console.error('❌ Chyba:', error.response?.data?.message || error.message);
+    spinner.fail(chalk.red('Chyba při načítání'));
+    console.error(chalk.red('  ' + (error.response?.data?.message || error.message)));
   }
 }
 
@@ -187,67 +243,85 @@ async function remove(nameOrId) {
 
 async function start(nameOrId) {
   if (!nameOrId) {
-    console.error('❌ Použití: bots start <name|id>');
+    console.log(chalk.red('\n  Použití: bots start <name|id>\n'));
     process.exit(1);
   }
+
+  const spinner = ora('Hledám bota...').start();
 
   try {
     const data = await apiRequest('GET', '/bots');
     const bot = data.bots.find(b => b.name === nameOrId || b.id == nameOrId);
 
     if (!bot) {
-      console.error(`❌ Bot "${nameOrId}" nenalezen`);
+      spinner.fail(chalk.red(`Bot "${nameOrId}" nenalezen`));
+      console.log('');
       process.exit(1);
     }
 
+    spinner.text = `Spouštím ${chalk.bold(bot.name)}...`;
     await apiRequest('POST', `/bots/${bot.id}/start`);
-    console.log(`✅ Bot "${bot.name}" spuštěn`);
+    spinner.succeed(chalk.green(`Bot ${chalk.bold(bot.name)} spuštěn`));
+    console.log('');
   } catch (error) {
-    console.error('❌ Chyba:', error.response?.data?.message || error.message);
+    spinner.fail(chalk.red('Chyba'));
+    console.error(chalk.red('  ' + (error.response?.data?.message || error.message)) + '\n');
   }
 }
 
 async function stop(nameOrId) {
   if (!nameOrId) {
-    console.error('❌ Použití: bots stop <name|id>');
+    console.log(chalk.red('\n  Použití: bots stop <name|id>\n'));
     process.exit(1);
   }
+
+  const spinner = ora('Hledám bota...').start();
 
   try {
     const data = await apiRequest('GET', '/bots');
     const bot = data.bots.find(b => b.name === nameOrId || b.id == nameOrId);
 
     if (!bot) {
-      console.error(`❌ Bot "${nameOrId}" nenalezen`);
+      spinner.fail(chalk.red(`Bot "${nameOrId}" nenalezen`));
+      console.log('');
       process.exit(1);
     }
 
+    spinner.text = `Zastavuji ${chalk.bold(bot.name)}...`;
     await apiRequest('POST', `/bots/${bot.id}/stop`);
-    console.log(`✅ Bot "${bot.name}" zastaven`);
+    spinner.succeed(chalk.yellow(`Bot ${chalk.bold(bot.name)} zastaven`));
+    console.log('');
   } catch (error) {
-    console.error('❌ Chyba:', error.response?.data?.message || error.message);
+    spinner.fail(chalk.red('Chyba'));
+    console.error(chalk.red('  ' + (error.response?.data?.message || error.message)) + '\n');
   }
 }
 
 async function restart(nameOrId) {
   if (!nameOrId) {
-    console.error('❌ Použití: bots restart <name|id>');
+    console.log(chalk.red('\n  Použití: bots restart <name|id>\n'));
     process.exit(1);
   }
+
+  const spinner = ora('Hledám bota...').start();
 
   try {
     const data = await apiRequest('GET', '/bots');
     const bot = data.bots.find(b => b.name === nameOrId || b.id == nameOrId);
 
     if (!bot) {
-      console.error(`❌ Bot "${nameOrId}" nenalezen`);
+      spinner.fail(chalk.red(`Bot "${nameOrId}" nenalezen`));
+      console.log('');
       process.exit(1);
     }
 
+    spinner.text = `Restartuji ${chalk.bold(bot.name)}...`;
     await apiRequest('POST', `/bots/${bot.id}/restart`);
-    console.log(`✅ Bot "${bot.name}" restartován`);
+    spinner.succeed(chalk.cyan(`Bot ${chalk.bold(bot.name)} restartován`));
+    console.log('');
   } catch (error) {
-    console.error('❌ Chyba:', error.response?.data?.message || error.message);
+    spinner.fail(chalk.red('Chyba'));
+    console.error(chalk.red('  ' + (error.response?.data?.message || error.message)) + '\n');
   }
 }
 
@@ -289,32 +363,29 @@ async function logs(nameOrId) {
 }
 
 function help() {
-  console.log(`
-🤖 Bot Manager CLI
+  console.log(chalk.bold.cyan('\n  BOT MANAGER CLI\n'));
+  console.log(chalk.gray('  Použití:'));
+  console.log(chalk.white('    bots <command> [options]\n'));
 
-Použití:
-  bots <command> [options]
+  console.log(chalk.gray('  Commands:'));
+  console.log(chalk.cyan('    login            ') + chalk.gray('Přihlásit se k Bot Manageru'));
+  console.log(chalk.cyan('    list             ') + chalk.gray('Zobrazit seznam všech botů'));
+  console.log(chalk.cyan('    add              ') + chalk.gray('Přidat nového bota (interaktivní)'));
+  console.log(chalk.cyan('    remove ') + chalk.yellow('<name|id>') + chalk.gray('  Odstranit bota'));
+  console.log(chalk.cyan('    start  ') + chalk.yellow('<name|id>') + chalk.gray('  Spustit bota'));
+  console.log(chalk.cyan('    stop   ') + chalk.yellow('<name|id>') + chalk.gray('  Zastavit bota'));
+  console.log(chalk.cyan('    restart') + chalk.yellow(' <name|id>') + chalk.gray('  Restartovat bota'));
+  console.log(chalk.cyan('    logs   ') + chalk.yellow('<name|id>') + chalk.gray('  Zobrazit logy bota'));
+  console.log(chalk.cyan('    help             ') + chalk.gray('Zobrazit nápovědu\n'));
 
-Commands:
-  login              Přihlásit se k Bot Manageru
-  list               Zobrazit seznam všech botů
-  add                Přidat nového bota (interaktivní)
-  remove <name|id>   Odstranit bota
-  start <name|id>    Spustit bota
-  stop <name|id>     Zastavit bota
-  restart <name|id>  Restartovat bota
-  logs <name|id>     Zobrazit logy bota
-  help               Zobrazit nápovědu
-
-Příklady:
-  bots login
-  bots list
-  bots add
-  bots start music-bot
-  bots stop 1
-  bots logs music-bot
-  bots remove music-bot
-`);
+  console.log(chalk.gray('  Příklady:'));
+  console.log(chalk.white('    bots login'));
+  console.log(chalk.white('    bots list'));
+  console.log(chalk.white('    bots add'));
+  console.log(chalk.white('    bots start music-bot'));
+  console.log(chalk.white('    bots stop 1'));
+  console.log(chalk.white('    bots logs music-bot'));
+  console.log(chalk.white('    bots remove music-bot\n'));
 }
 
 // Main
