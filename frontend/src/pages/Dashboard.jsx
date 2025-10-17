@@ -168,7 +168,7 @@ export default function Dashboard() {
 
         {/* Add Bot Button */}
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-white">Moje boty</h2>
+          <h2 className="text-xl font-semibold text-white">Moji boti</h2>
           <Button onClick={() => setShowAddDialog(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Přidat bota
