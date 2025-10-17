@@ -1,0 +1,23 @@
+{
+  "name": "bot-manager-cli",
+  "version": "1.0.0",
+  "description": "CLI tool pro správu Discord botů přes Bot Manager API",
+  "main": "bots",
+  "bin": {
+    "bots": "./bots"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "bot",
+    "manager",
+    "cli",
+    "discord"
+  ],
+  "author": "Jackal",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.9"
+  }
+}

@@ -350,6 +350,73 @@ app.get('/api/stats', authenticateToken, async (req, res) => {
   }
 });
 
+// POST /api/parse-env - Načíst .env soubor z dané cesty
+app.post('/api/parse-env', authenticateToken, async (req, res) => {
+  try {
+    const { script_path } = req.body;
+
+    if (!script_path) {
+      return res.status(400).json({ success: false, message: 'script_path je povinný' });
+    }
+
+    const fs = require('fs');
+    const path = require('path');
+
+    // Získat složku ze script_path
+    const scriptDir = path.dirname(script_path);
+    const envPath = path.join(scriptDir, '.env');
+
+    // Zkontrolovat jestli .env existuje
+    if (!fs.existsSync(envPath)) {
+      return res.json({
+        success: true,
+        env_vars: {},
+        message: '.env soubor nenalezen'
+      });
+    }
+
+    // Přečíst .env soubor
+    const envContent = fs.readFileSync(envPath, 'utf-8');
+    const envVars = {};
+
+    // Parsovat .env řádek po řádku
+    envContent.split('\n').forEach(line => {
+      line = line.trim();
+
+      // Ignorovat prázdné řádky a komentáře
+      if (!line || line.startsWith('#')) return;
+
+      // Parsovat KEY=VALUE
+      const match = line.match(/^([^=]+)=(.*)$/);
+      if (match) {
+        const key = match[1].trim();
+        let value = match[2].trim();
+
+        // Odstranit uvozovky pokud jsou
+        if ((value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'"))) {
+          value = value.slice(1, -1);
+        }
+
+        envVars[key] = value;
+      }
+    });
+
+    res.json({
+      success: true,
+      env_vars: envVars,
+      message: `Načteno ${Object.keys(envVars).length} proměnných z .env`
+    });
+  } catch (error) {
+    console.error('❌ Chyba při čtení .env:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Chyba při čtení .env souboru',
+      error: error.message
+    });
+  }
+});
+
 // ============================================
 // SERVER START
 // ============================================

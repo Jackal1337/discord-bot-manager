@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
+import { X, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { botsAPI } from '@/lib/api';
+import { botsAPI, envAPI } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +17,7 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
     env_vars: '',
   });
   const [loading, setLoading] = useState(false);
+  const [loadingEnv, setLoadingEnv] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,6 +34,37 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
       toast.error(error.response?.data?.message || 'Chyba při přidávání bota');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLoadEnv = async () => {
+    if (!formData.script_path) {
+      toast.error('Nejdřív zadej cestu ke scriptu');
+      return;
+    }
+
+    setLoadingEnv(true);
+
+    try {
+      const response = await envAPI.parseEnv(formData.script_path);
+
+      if (response.data.success) {
+        const envVars = response.data.env_vars;
+
+        if (Object.keys(envVars).length > 0) {
+          setFormData({
+            ...formData,
+            env_vars: JSON.stringify(envVars, null, 2)
+          });
+          toast.success(response.data.message);
+        } else {
+          toast.info('.env soubor nenalezen nebo je prázdný');
+        }
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Chyba při načítání .env');
+    } finally {
+      setLoadingEnv(false);
     }
   };
 
@@ -103,14 +135,25 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
 
                   <div className="space-y-2">
                     <Label htmlFor="script_path" className="text-slate-200">Cesta ke scriptu</Label>
-                    <Input
-                      id="script_path"
-                      placeholder="/home/user/bots/music-bot/index.js"
-                      value={formData.script_path}
-                      onChange={(e) => setFormData({ ...formData, script_path: e.target.value })}
-                      required
-                      className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500"
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="script_path"
+                        placeholder="/home/user/bots/music-bot/index.js"
+                        value={formData.script_path}
+                        onChange={(e) => setFormData({ ...formData, script_path: e.target.value })}
+                        required
+                        className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500 flex-1"
+                      />
+                      <Button
+                        type="button"
+                        onClick={handleLoadEnv}
+                        disabled={loadingEnv || !formData.script_path}
+                        className="bg-slate-700 hover:bg-slate-600 text-white"
+                      >
+                        <FileText className="w-4 h-4 mr-2" />
+                        {loadingEnv ? 'Načítám...' : 'Načíst .env'}
+                      </Button>
+                    </div>
                     <p className="text-xs text-slate-400">
                       Absolutní cesta k hlavnímu souboru bota
                     </p>

@@ -53,4 +53,9 @@ export const statsAPI = {
   get: () => api.get('/stats'),
 };
 
+// Parse .env API
+export const envAPI = {
+  parseEnv: (script_path) => api.post('/parse-env', { script_path }),
+};
+
 export default api;

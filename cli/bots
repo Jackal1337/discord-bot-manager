@@ -1,0 +1,353 @@
+#!/usr/bin/env node
+
+const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+
+const CONFIG_DIR = path.join(os.homedir(), '.config', 'bot-manager');
+const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
+const API_BASE = process.env.BOT_MANAGER_API || 'https://bots.notjackal.eu/api';
+
+// Načíst konfiguraci (token)
+function loadConfig() {
+  if (!fs.existsSync(CONFIG_FILE)) {
+    return null;
+  }
+  return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+}
+
+// Uložit konfiguraci
+function saveConfig(config) {
+  if (!fs.existsSync(CONFIG_DIR)) {
+    fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  }
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+}
+
+// API client
+async function apiRequest(method, endpoint, data = null) {
+  const config = loadConfig();
+
+  if (!config || !config.token) {
+    console.error('❌ Nejsi přihlášen. Spusť: bots login');
+    process.exit(1);
+  }
+
+  try {
+    const response = await axios({
+      method,
+      url: `${API_BASE}${endpoint}`,
+      headers: {
+        'Authorization': `Bearer ${config.token}`,
+        'Content-Type': 'application/json'
+      },
+      data
+    });
+
+    return response.data;
+  } catch (error) {
+    if (error.response?.status === 401) {
+      console.error('❌ Token vypršel. Přihlaš se znovu: bots login');
+      process.exit(1);
+    }
+    throw error;
+  }
+}
+
+// Commands
+
+async function login() {
+  const readline = require('readline').createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  const question = (q) => new Promise(resolve => readline.question(q, resolve));
+
+  const username = await question('Username: ');
+  const password = await question('Password: ');
+  readline.close();
+
+  try {
+    const response = await axios.post(`${API_BASE}/auth/login`, { username, password });
+
+    if (response.data.success) {
+      saveConfig({ token: response.data.token, user: response.data.user });
+      console.log('✅ Přihlášení úspěšné');
+      console.log(`👤 Uživatel: ${response.data.user.username}`);
+    }
+  } catch (error) {
+    console.error('❌ Chyba při přihlášení:', error.response?.data?.message || error.message);
+    process.exit(1);
+  }
+}
+
+async function list() {
+  try {
+    const data = await apiRequest('GET', '/bots');
+    const bots = data.bots;
+
+    if (bots.length === 0) {
+      console.log('📭 Žádné boty');
+      return;
+    }
+
+    console.log('\n🤖 Seznam botů:\n');
+    bots.forEach(bot => {
+      const statusEmoji = bot.status === 'online' ? '🟢' : '🔴';
+      console.log(`${statusEmoji} ${bot.name}`);
+      console.log(`   ID: ${bot.id}`);
+      console.log(`   Typ: ${bot.type === 'nodejs' ? 'Node.js' : 'Python'}`);
+      console.log(`   Status: ${bot.status}`);
+      if (bot.status === 'online') {
+        console.log(`   CPU: ${bot.cpu?.toFixed(1)}% | RAM: ${(bot.memory / 1024 / 1024).toFixed(0)} MB`);
+      }
+      console.log('');
+    });
+  } catch (error) {
+    console.error('❌ Chyba:', error.response?.data?.message || error.message);
+  }
+}
+
+async function add() {
+  const readline = require('readline').createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  const question = (q) => new Promise(resolve => readline.question(q, resolve));
+
+  console.log('\n🤖 Přidání nového bota\n');
+
+  const name = await question('Název: ');
+  const type = await question('Typ (nodejs/python): ');
+  const script_path = await question('Cesta ke scriptu: ');
+  const loadEnv = await question('Načíst .env? (y/n): ');
+
+  let env_vars = '{}';
+
+  if (loadEnv.toLowerCase() === 'y') {
+    try {
+      const envData = await apiRequest('POST', '/parse-env', { script_path });
+      if (envData.success && Object.keys(envData.env_vars).length > 0) {
+        env_vars = JSON.stringify(envData.env_vars);
+        console.log(`✅ ${envData.message}`);
+      } else {
+        console.log('ℹ️  .env nenalezen, pokračuji bez ENV proměnných');
+      }
+    } catch (error) {
+      console.log('⚠️  Chyba při načítání .env, pokračuji bez ENV proměnných');
+    }
+  }
+
+  readline.close();
+
+  try {
+    const data = await apiRequest('POST', '/bots', {
+      name,
+      type: type === 'python' ? 'python' : 'nodejs',
+      script_path,
+      env_vars
+    });
+
+    console.log(`\n✅ Bot "${name}" přidán (ID: ${data.bot.id})`);
+  } catch (error) {
+    console.error('❌ Chyba:', error.response?.data?.message || error.message);
+  }
+}
+
+async function remove(nameOrId) {
+  if (!nameOrId) {
+    console.error('❌ Použití: bots remove <name|id>');
+    process.exit(1);
+  }
+
+  try {
+    const data = await apiRequest('GET', '/bots');
+    const bot = data.bots.find(b => b.name === nameOrId || b.id == nameOrId);
+
+    if (!bot) {
+      console.error(`❌ Bot "${nameOrId}" nenalezen`);
+      process.exit(1);
+    }
+
+    await apiRequest('DELETE', `/bots/${bot.id}`);
+    console.log(`✅ Bot "${bot.name}" odstraněn`);
+  } catch (error) {
+    console.error('❌ Chyba:', error.response?.data?.message || error.message);
+  }
+}
+
+async function start(nameOrId) {
+  if (!nameOrId) {
+    console.error('❌ Použití: bots start <name|id>');
+    process.exit(1);
+  }
+
+  try {
+    const data = await apiRequest('GET', '/bots');
+    const bot = data.bots.find(b => b.name === nameOrId || b.id == nameOrId);
+
+    if (!bot) {
+      console.error(`❌ Bot "${nameOrId}" nenalezen`);
+      process.exit(1);
+    }
+
+    await apiRequest('POST', `/bots/${bot.id}/start`);
+    console.log(`✅ Bot "${bot.name}" spuštěn`);
+  } catch (error) {
+    console.error('❌ Chyba:', error.response?.data?.message || error.message);
+  }
+}
+
+async function stop(nameOrId) {
+  if (!nameOrId) {
+    console.error('❌ Použití: bots stop <name|id>');
+    process.exit(1);
+  }
+
+  try {
+    const data = await apiRequest('GET', '/bots');
+    const bot = data.bots.find(b => b.name === nameOrId || b.id == nameOrId);
+
+    if (!bot) {
+      console.error(`❌ Bot "${nameOrId}" nenalezen`);
+      process.exit(1);
+    }
+
+    await apiRequest('POST', `/bots/${bot.id}/stop`);
+    console.log(`✅ Bot "${bot.name}" zastaven`);
+  } catch (error) {
+    console.error('❌ Chyba:', error.response?.data?.message || error.message);
+  }
+}
+
+async function restart(nameOrId) {
+  if (!nameOrId) {
+    console.error('❌ Použití: bots restart <name|id>');
+    process.exit(1);
+  }
+
+  try {
+    const data = await apiRequest('GET', '/bots');
+    const bot = data.bots.find(b => b.name === nameOrId || b.id == nameOrId);
+
+    if (!bot) {
+      console.error(`❌ Bot "${nameOrId}" nenalezen`);
+      process.exit(1);
+    }
+
+    await apiRequest('POST', `/bots/${bot.id}/restart`);
+    console.log(`✅ Bot "${bot.name}" restartován`);
+  } catch (error) {
+    console.error('❌ Chyba:', error.response?.data?.message || error.message);
+  }
+}
+
+async function logs(nameOrId) {
+  if (!nameOrId) {
+    console.error('❌ Použití: bots logs <name|id>');
+    process.exit(1);
+  }
+
+  try {
+    const data = await apiRequest('GET', '/bots');
+    const bot = data.bots.find(b => b.name === nameOrId || b.id == nameOrId);
+
+    if (!bot) {
+      console.error(`❌ Bot "${nameOrId}" nenalezen`);
+      process.exit(1);
+    }
+
+    const logsData = await apiRequest('GET', `/bots/${bot.id}/logs?lines=50`);
+
+    console.log(`\n📋 Logy pro "${bot.name}":\n`);
+
+    if (logsData.logs.stdout) {
+      console.log('--- STDOUT ---');
+      console.log(logsData.logs.stdout);
+    }
+
+    if (logsData.logs.stderr) {
+      console.log('\n--- STDERR ---');
+      console.log(logsData.logs.stderr);
+    }
+
+    if (!logsData.logs.stdout && !logsData.logs.stderr) {
+      console.log('Zatím žádné logy');
+    }
+  } catch (error) {
+    console.error('❌ Chyba:', error.response?.data?.message || error.message);
+  }
+}
+
+function help() {
+  console.log(`
+🤖 Bot Manager CLI
+
+Použití:
+  bots <command> [options]
+
+Commands:
+  login              Přihlásit se k Bot Manageru
+  list               Zobrazit seznam všech botů
+  add                Přidat nového bota (interaktivní)
+  remove <name|id>   Odstranit bota
+  start <name|id>    Spustit bota
+  stop <name|id>     Zastavit bota
+  restart <name|id>  Restartovat bota
+  logs <name|id>     Zobrazit logy bota
+  help               Zobrazit nápovědu
+
+Příklady:
+  bots login
+  bots list
+  bots add
+  bots start music-bot
+  bots stop 1
+  bots logs music-bot
+  bots remove music-bot
+`);
+}
+
+// Main
+const command = process.argv[2];
+const arg = process.argv[3];
+
+(async () => {
+  switch (command) {
+    case 'login':
+      await login();
+      break;
+    case 'list':
+      await list();
+      break;
+    case 'add':
+      await add();
+      break;
+    case 'remove':
+      await remove(arg);
+      break;
+    case 'start':
+      await start(arg);
+      break;
+    case 'stop':
+      await stop(arg);
+      break;
+    case 'restart':
+      await restart(arg);
+      break;
+    case 'logs':
+      await logs(arg);
+      break;
+    case 'help':
+    case undefined:
+      help();
+      break;
+    default:
+      console.error(`❌ Neznámý příkaz: ${command}`);
+      help();
+      process.exit(1);
+  }
+})();
