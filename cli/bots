@@ -35,15 +35,21 @@ async function apiRequest(method, endpoint, data = null) {
   }
 
   try {
-    const response = await axios({
+    const requestConfig = {
       method,
       url: `${API_BASE}${endpoint}`,
       headers: {
-        'Authorization': `Bearer ${config.token}`,
-        'Content-Type': 'application/json'
-      },
-      data
-    });
+        'Authorization': `Bearer ${config.token}`
+      }
+    };
+
+    // Přidat data a Content-Type pouze pro POST/PUT/PATCH
+    if (data && ['POST', 'PUT', 'PATCH'].includes(method.toUpperCase())) {
+      requestConfig.headers['Content-Type'] = 'application/json';
+      requestConfig.data = data;
+    }
+
+    const response = await axios(requestConfig);
 
     return response.data;
   } catch (error) {
