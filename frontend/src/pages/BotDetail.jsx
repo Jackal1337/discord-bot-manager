@@ -98,15 +98,20 @@ export default function BotDetail() {
 
   const getStatusBadge = (status) => {
     const statusMap = {
-      online: { className: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', text: 'Online' },
-      stopped: { className: 'bg-slate-500/20 text-slate-400 border-slate-500/30', text: 'Offline' },
-      stopping: { className: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', text: 'Zastavuji' },
-      errored: { className: 'bg-red-500/20 text-red-400 border-red-500/30', text: 'Chyba' },
-      offline: { className: 'bg-slate-500/20 text-slate-400 border-slate-500/30', text: 'Offline' },
+      online: { className: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', text: 'Online', dot: 'bg-emerald-500' },
+      stopped: { className: 'bg-slate-500/20 text-slate-400 border-slate-500/30', text: 'Offline', dot: 'bg-slate-500' },
+      stopping: { className: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', text: 'Zastavuji', dot: 'bg-yellow-500' },
+      errored: { className: 'bg-red-500/20 text-red-400 border-red-500/30', text: 'Chyba', dot: 'bg-red-500' },
+      offline: { className: 'bg-slate-500/20 text-slate-400 border-slate-500/30', text: 'Offline', dot: 'bg-slate-500' },
     };
 
     const config = statusMap[status] || statusMap.offline;
-    return <Badge className={config.className}>{config.text}</Badge>;
+    return (
+      <Badge className={config.className}>
+        <span className={`inline-block w-2 h-2 rounded-full ${config.dot} mr-2`}></span>
+        {config.text}
+      </Badge>
+    );
   };
 
   if (loading || !bot) {
@@ -130,7 +135,7 @@ export default function BotDetail() {
             <div>
               <h1 className="text-3xl font-bold text-white">{bot.name}</h1>
               <p className="text-sm text-slate-400 mt-1">
-                {bot.type === 'nodejs' ? '🟢 Node.js' : '🐍 Python'} • {bot.script_path}
+                {bot.type === 'nodejs' ? 'Node.js' : 'Python'} • {bot.script_path}
               </p>
             </div>
             {getStatusBadge(bot.status)}
