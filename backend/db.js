@@ -80,7 +80,8 @@ const DeployHistory = sequelize.define('DeployHistory', {
     references: {
       model: 'bots',
       key: 'id'
-    }
+    },
+    onDelete: 'CASCADE'
   },
   action: {
     type: DataTypes.STRING, // 'start', 'stop', 'restart', 'start_failed', atd.
@@ -100,7 +101,7 @@ const DeployHistory = sequelize.define('DeployHistory', {
 });
 
 // Relace
-Bot.hasMany(DeployHistory, { foreignKey: 'bot_id', as: 'history' });
+Bot.hasMany(DeployHistory, { foreignKey: 'bot_id', as: 'history', onDelete: 'CASCADE' });
 DeployHistory.belongsTo(Bot, { foreignKey: 'bot_id' });
 
 // Sync databáze
@@ -109,7 +110,7 @@ async function initDatabase() {
     await sequelize.authenticate();
     console.log('✅ Připojení k SQLite databázi úspěšné');
 
-    await sequelize.sync({ alter: true });
+    await sequelize.sync();
     console.log('✅ Databázové modely synchronizovány');
   } catch (error) {
     console.error('❌ Chyba při připojení k databázi:', error);

@@ -174,6 +174,11 @@ app.delete('/api/bots/:id', async (req, res) => {
       console.warn('⚠️ PM2 delete selhal (bot možná neběžel):', pm2Error.message);
     }
 
+    // Smazat deploy history (pro kompatibilitu se starými záznamy bez CASCADE)
+    await DeployHistory.destroy({
+      where: { bot_id: bot.id }
+    });
+
     // Smazat z databáze
     await bot.destroy();
 
