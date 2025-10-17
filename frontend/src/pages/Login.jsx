@@ -32,23 +32,27 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-purple-500/10" />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
+        className="relative z-10"
       >
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-3xl font-bold text-center">Bot Manager</CardTitle>
-            <CardDescription className="text-center">
+        <Card className="w-full max-w-md bg-slate-900 border-slate-800 shadow-2xl">
+          <CardHeader className="space-y-1 pb-8">
+            <CardTitle className="text-4xl font-bold text-center bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              Bot Manager
+            </CardTitle>
+            <CardDescription className="text-center text-slate-400 text-base">
               Přihlaste se pro správu vašich Discord botů
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="username">Uživatelské jméno</Label>
+                <Label htmlFor="username" className="text-slate-200">Uživatelské jméno</Label>
                 <Input
                   id="username"
                   type="text"
@@ -56,10 +60,11 @@ export default function Login() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
+                  className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Heslo</Label>
+                <Label htmlFor="password" className="text-slate-200">Heslo</Label>
                 <Input
                   id="password"
                   type="password"
@@ -67,9 +72,10 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium h-11 text-base" disabled={loading}>
                 {loading ? 'Přihlašuji...' : 'Přihlásit se'}
               </Button>
             </form>

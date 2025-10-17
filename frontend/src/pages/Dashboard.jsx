@@ -87,15 +87,15 @@ export default function Dashboard() {
 
   const getStatusBadge = (status) => {
     const statusMap = {
-      online: { variant: 'success', text: 'Online' },
-      stopped: { variant: 'error', text: 'Offline' },
-      stopping: { variant: 'warning', text: 'Zastavuji' },
-      errored: { variant: 'error', text: 'Chyba' },
-      offline: { variant: 'outline', text: 'Offline' },
+      online: { className: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', text: 'Online' },
+      stopped: { className: 'bg-slate-500/20 text-slate-400 border-slate-500/30', text: 'Offline' },
+      stopping: { className: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', text: 'Zastavuji' },
+      errored: { className: 'bg-red-500/20 text-red-400 border-red-500/30', text: 'Chyba' },
+      offline: { className: 'bg-slate-500/20 text-slate-400 border-slate-500/30', text: 'Offline' },
     };
 
     const config = statusMap[status] || statusMap.offline;
-    return <Badge variant={config.variant}>{config.text}</Badge>;
+    return <Badge className={config.className}>{config.text}</Badge>;
   };
 
   if (loading) {
@@ -107,15 +107,15 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-slate-950">
       {/* Header */}
-      <div className="border-b border-slate-700 bg-slate-900/50 backdrop-blur">
+      <div className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-xl">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-white">Bot Manager</h1>
             <p className="text-sm text-slate-400">Vítej, {user?.username}</p>
           </div>
-          <Button variant="ghost" onClick={logout}>
+          <Button variant="ghost" onClick={logout} className="text-slate-300 hover:text-white hover:bg-slate-800">
             <LogOut className="w-4 h-4 mr-2" />
             Odhlásit
           </Button>
@@ -127,34 +127,34 @@ export default function Dashboard() {
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-              <Card>
+              <Card className="bg-slate-900 border-slate-800">
                 <CardHeader className="pb-3">
-                  <CardDescription>Celkem botů</CardDescription>
-                  <CardTitle className="text-3xl">{stats.total_bots}</CardTitle>
+                  <CardDescription className="text-slate-400">Celkem botů</CardDescription>
+                  <CardTitle className="text-3xl text-white">{stats.total_bots}</CardTitle>
                 </CardHeader>
               </Card>
             </motion.div>
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-              <Card>
+              <Card className="bg-slate-900 border-slate-800">
                 <CardHeader className="pb-3">
-                  <CardDescription>Online</CardDescription>
-                  <CardTitle className="text-3xl text-green-500">{stats.online}</CardTitle>
+                  <CardDescription className="text-slate-400">Online</CardDescription>
+                  <CardTitle className="text-3xl text-emerald-400">{stats.online}</CardTitle>
                 </CardHeader>
               </Card>
             </motion.div>
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-              <Card>
+              <Card className="bg-slate-900 border-slate-800">
                 <CardHeader className="pb-3">
-                  <CardDescription>CPU Usage</CardDescription>
-                  <CardTitle className="text-3xl">{formatCPU(stats.total_cpu)}</CardTitle>
+                  <CardDescription className="text-slate-400">CPU Usage</CardDescription>
+                  <CardTitle className="text-3xl text-blue-400">{formatCPU(stats.total_cpu)}</CardTitle>
                 </CardHeader>
               </Card>
             </motion.div>
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-              <Card>
+              <Card className="bg-slate-900 border-slate-800">
                 <CardHeader className="pb-3">
-                  <CardDescription>Memory</CardDescription>
-                  <CardTitle className="text-3xl">{formatMemory(stats.total_memory)}</CardTitle>
+                  <CardDescription className="text-slate-400">Memory</CardDescription>
+                  <CardTitle className="text-3xl text-purple-400">{formatMemory(stats.total_memory)}</CardTitle>
                 </CardHeader>
               </Card>
             </motion.div>
@@ -172,8 +172,8 @@ export default function Dashboard() {
 
         {/* Bots Grid */}
         {bots.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
+          <Card className="bg-slate-900 border-slate-800">
+            <CardContent className="py-12 text-center text-slate-400">
               Zatím nemáš žádné boty. Přidej prvního!
             </CardContent>
           </Card>
@@ -186,12 +186,12 @@ export default function Dashboard() {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: index * 0.05 }}
               >
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate(`/bot/${bot.id}`)}>
+                <Card className="bg-slate-900 border-slate-800 hover:border-slate-700 hover:shadow-2xl transition-all cursor-pointer" onClick={() => navigate(`/bot/${bot.id}`)}>
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <CardTitle className="text-lg">{bot.name}</CardTitle>
-                        <CardDescription className="mt-1">
+                        <CardTitle className="text-lg text-white">{bot.name}</CardTitle>
+                        <CardDescription className="mt-1 text-slate-400">
                           {bot.type === 'nodejs' ? '🟢 Node.js' : '🐍 Python'}
                         </CardDescription>
                       </div>
@@ -200,18 +200,18 @@ export default function Dashboard() {
                   </CardHeader>
                   <CardContent>
                     {bot.status === 'online' && (
-                      <div className="space-y-1 text-sm text-muted-foreground mb-4">
+                      <div className="space-y-1 text-sm text-slate-300 mb-4 bg-slate-800/50 rounded-lg p-3">
                         <div className="flex justify-between">
-                          <span>Uptime:</span>
-                          <span>{formatUptime(Date.now() - bot.uptime)}</span>
+                          <span className="text-slate-400">Uptime:</span>
+                          <span className="font-medium">{formatUptime(Date.now() - bot.uptime)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>CPU:</span>
-                          <span>{formatCPU(bot.cpu)}</span>
+                          <span className="text-slate-400">CPU:</span>
+                          <span className="font-medium text-blue-400">{formatCPU(bot.cpu)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>RAM:</span>
-                          <span>{formatMemory(bot.memory)}</span>
+                          <span className="text-slate-400">RAM:</span>
+                          <span className="font-medium text-purple-400">{formatMemory(bot.memory)}</span>
                         </div>
                       </div>
                     )}
@@ -219,22 +219,22 @@ export default function Dashboard() {
                     <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                       {bot.status === 'online' ? (
                         <>
-                          <Button size="sm" variant="outline" onClick={() => handleStop(bot)}>
+                          <Button size="sm" variant="outline" onClick={() => handleStop(bot)} className="bg-slate-800 border-slate-700 hover:bg-slate-700 text-white">
                             <Square className="w-4 h-4" />
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleRestart(bot)}>
+                          <Button size="sm" variant="outline" onClick={() => handleRestart(bot)} className="bg-slate-800 border-slate-700 hover:bg-slate-700 text-white">
                             <RotateCw className="w-4 h-4" />
                           </Button>
                         </>
                       ) : (
-                        <Button size="sm" onClick={() => handleStart(bot)}>
+                        <Button size="sm" onClick={() => handleStart(bot)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
                           <Play className="w-4 h-4" />
                         </Button>
                       )}
-                      <Button size="sm" variant="destructive" onClick={() => handleDelete(bot)}>
+                      <Button size="sm" variant="destructive" onClick={() => handleDelete(bot)} className="bg-red-600 hover:bg-red-700">
                         <Trash2 className="w-4 h-4" />
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => navigate(`/bot/${bot.id}`)}>
+                      <Button size="sm" variant="ghost" onClick={() => navigate(`/bot/${bot.id}`)} className="hover:bg-slate-800 text-slate-300">
                         <Activity className="w-4 h-4" />
                       </Button>
                     </div>

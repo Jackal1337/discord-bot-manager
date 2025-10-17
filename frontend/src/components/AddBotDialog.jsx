@@ -56,11 +56,11 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
             exit={{ opacity: 0, scale: 0.95 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <Card className="w-full max-w-lg">
+            <Card className="w-full max-w-lg bg-slate-900 border-slate-800 shadow-2xl">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle>Přidat nového bota</CardTitle>
-                  <Button variant="ghost" size="icon" onClick={onClose}>
+                  <CardTitle className="text-white">Přidat nového bota</CardTitle>
+                  <Button variant="ghost" size="icon" onClick={onClose} className="text-slate-400 hover:text-white hover:bg-slate-800">
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
@@ -68,24 +68,25 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Název bota</Label>
+                    <Label htmlFor="name" className="text-slate-200">Název bota</Label>
                     <Input
                       id="name"
                       placeholder="např. Music Bot"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       required
+                      className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="type">Typ</Label>
+                    <Label htmlFor="type" className="text-slate-200">Typ</Label>
                     <div className="flex gap-2">
                       <Button
                         type="button"
                         variant={formData.type === 'nodejs' ? 'default' : 'outline'}
                         onClick={() => setFormData({ ...formData, type: 'nodejs' })}
-                        className="flex-1"
+                        className={formData.type === 'nodejs' ? 'flex-1 bg-blue-600 hover:bg-blue-700' : 'flex-1 bg-slate-800 border-slate-700 text-white hover:bg-slate-700'}
                       >
                         Node.js
                       </Button>
@@ -93,7 +94,7 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
                         type="button"
                         variant={formData.type === 'python' ? 'default' : 'outline'}
                         onClick={() => setFormData({ ...formData, type: 'python' })}
-                        className="flex-1"
+                        className={formData.type === 'python' ? 'flex-1 bg-blue-600 hover:bg-blue-700' : 'flex-1 bg-slate-800 border-slate-700 text-white hover:bg-slate-700'}
                       >
                         Python
                       </Button>
@@ -101,36 +102,37 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="script_path">Cesta ke scriptu</Label>
+                    <Label htmlFor="script_path" className="text-slate-200">Cesta ke scriptu</Label>
                     <Input
                       id="script_path"
                       placeholder="/home/user/bots/music-bot/index.js"
                       value={formData.script_path}
                       onChange={(e) => setFormData({ ...formData, script_path: e.target.value })}
                       required
+                      className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500"
                     />
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-slate-400">
                       Absolutní cesta k hlavnímu souboru bota
                     </p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="env_vars">ENV Variables (volitelné)</Label>
+                    <Label htmlFor="env_vars" className="text-slate-200">ENV Variables (volitelné)</Label>
                     <textarea
                       id="env_vars"
-                      className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex min-h-[100px] w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white ring-offset-background placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       placeholder='{"TOKEN": "xxx", "PREFIX": "!"}'
                       value={formData.env_vars}
                       onChange={(e) => setFormData({ ...formData, env_vars: e.target.value })}
                     />
-                    <p className="text-xs text-muted-foreground">JSON formát</p>
+                    <p className="text-xs text-slate-400">JSON formát</p>
                   </div>
 
                   <div className="flex gap-2 justify-end">
-                    <Button type="button" variant="outline" onClick={onClose}>
+                    <Button type="button" variant="outline" onClick={onClose} className="bg-slate-800 border-slate-700 text-white hover:bg-slate-700">
                       Zrušit
                     </Button>
-                    <Button type="submit" disabled={loading}>
+                    <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
                       {loading ? 'Přidávám...' : 'Přidat bota'}
                     </Button>
                   </div>
