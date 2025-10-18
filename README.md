@@ -7,12 +7,12 @@
 > **Modern web-based management system for Discord bots (Node.js & Python)**
 
 [![GitHub](https://img.shields.io/badge/GitHub-discord--bot--manager-blue?logo=github)](https://github.com/Jackal1337/discord-bot-manager)
-[![Live Demo](https://img.shields.io/badge/Demo-Try%20it%20now-success)](https://bots.notjackal.eu/demo)
+[![Live Demo](https://img.shields.io/badge/Demo-Try%20it%20now-success)](https://botsdemo.notjackal.eu)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ## 🚀 Demo
 
-**Live demo:** [https://bots.notjackal.eu/demo](https://bots.notjackal.eu/demo)
+**Live demo:** [https://botsdemo.notjackal.eu](https://botsdemo.notjackal.eu)
 *Try all features with in-memory data (resets on page refresh)*
 
 ---
