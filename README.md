@@ -1,6 +1,10 @@
-# 🤖 Bot Manager
+# 🤖 Discord Bot Manager
 
 > **Modern web-based management system for Discord bots (Node.js & Python)**
+
+[![GitHub](https://img.shields.io/badge/GitHub-discord--bot--manager-blue?logo=github)](https://github.com/Jackal1337/discord-bot-manager)
+[![Live Demo](https://img.shields.io/badge/Demo-Try%20it%20now-success)](https://bots.notjackal.eu/demo)
+[![Production](https://img.shields.io/badge/Production-Live-green)](https://bots.notjackal.eu)
 
 [**🇨🇿 Česká verze**](#česká-verze) | [**🇬🇧 English**](#english-version)
 
