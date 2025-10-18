@@ -224,6 +224,15 @@ app.post('/api/bots/:id/start', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Bot nenalezen' });
     }
 
+    // V demo režimu jen update status v databázi
+    if (isDemoMode()) {
+      await bot.update({
+        status: 'online',
+        uptime: Date.now()
+      });
+      return res.json({ success: true, message: `Bot "${bot.name}" spuštěn (demo)` });
+    }
+
     await pm2Handler.startBot(bot.toJSON());
 
     // Zalogovat akci
@@ -237,7 +246,7 @@ app.post('/api/bots/:id/start', async (req, res) => {
     console.error('❌ Chyba při startu bota:', error);
 
     // Zalogovat selhání
-    if (req.params.id) {
+    if (req.params.id && !isDemoMode()) {
       await DeployHistory.create({
         bot_id: req.params.id,
         action: 'start_failed',
@@ -259,6 +268,12 @@ app.post('/api/bots/:id/stop', async (req, res) => {
     const bot = await Bot.findByPk(req.params.id);
     if (!bot) {
       return res.status(404).json({ success: false, message: 'Bot nenalezen' });
+    }
+
+    // V demo režimu jen update status v databázi
+    if (isDemoMode()) {
+      await bot.update({ status: 'stopped' });
+      return res.json({ success: true, message: `Bot "${bot.name}" zastaven (demo)` });
     }
 
     await pm2Handler.stopBot(bot.pm2_name);
@@ -286,6 +301,15 @@ app.post('/api/bots/:id/restart', async (req, res) => {
     const bot = await Bot.findByPk(req.params.id);
     if (!bot) {
       return res.status(404).json({ success: false, message: 'Bot nenalezen' });
+    }
+
+    // V demo režimu jen update status v databázi
+    if (isDemoMode()) {
+      await bot.update({
+        status: 'online',
+        restarts: (bot.restarts || 0) + 1
+      });
+      return res.json({ success: true, message: `Bot "${bot.name}" restartován (demo)` });
     }
 
     await pm2Handler.restartBot(bot.pm2_name);
