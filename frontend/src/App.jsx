@@ -2,10 +2,12 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from './lib/auth';
+import { useDemo } from './hooks/useDemo';
 
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import BotDetail from './pages/BotDetail';
+import DemoBanner from './components/DemoBanner';
 
 // Protected Route wrapper
 function ProtectedRoute({ children }) {
@@ -46,34 +48,39 @@ function PublicRoute({ children }) {
 }
 
 function AppRoutes() {
+  const { isDemo } = useDemo();
+
   return (
-    <Routes>
-      <Route
-        path="/login"
-        element={
-          <PublicRoute>
-            <Login />
-          </PublicRoute>
-        }
-      />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/bot/:id"
-        element={
-          <ProtectedRoute>
-            <BotDetail />
-          </ProtectedRoute>
-        }
-      />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <>
+      {isDemo && <DemoBanner />}
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/bot/:id"
+          element={
+            <ProtectedRoute>
+              <BotDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }
 

@@ -7,6 +7,7 @@ require('dotenv').config();
 
 const { initDatabase, Bot, DeployHistory, BotMetrics } = require('./db');
 const { authenticateToken, loginHandler } = require('./authMiddleware');
+const { demoMiddleware, isDemoMode } = require('./demoMiddleware');
 const pm2Handler = require('./pm2Handler');
 
 const app = express();
@@ -24,6 +25,9 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Demo middleware (blokuje write operace v demo režimu)
+app.use(demoMiddleware);
+
 // Logování requestů
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
@@ -39,6 +43,14 @@ app.post('/api/auth/login', loginHandler);
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Bot Manager API běží' });
+});
+
+// Demo status check
+app.get('/api/demo-status', (req, res) => {
+  res.json({
+    demo: isDemoMode(),
+    message: isDemoMode() ? 'Demo režim aktivní - read-only' : 'Produkční režim'
+  });
 });
 
 // ============================================
