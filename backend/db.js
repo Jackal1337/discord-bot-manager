@@ -100,9 +100,50 @@ const DeployHistory = sequelize.define('DeployHistory', {
   timestamps: false
 });
 
+// Model: Bot Metrics (CPU/Memory historie)
+const BotMetrics = sequelize.define('BotMetrics', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  bot_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'bots',
+      key: 'id'
+    },
+    onDelete: 'CASCADE'
+  },
+  cpu: {
+    type: DataTypes.FLOAT,
+    defaultValue: 0
+  },
+  memory: {
+    type: DataTypes.INTEGER, // v bajtech
+    defaultValue: 0
+  },
+  timestamp: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  }
+}, {
+  tableName: 'bot_metrics',
+  timestamps: false,
+  indexes: [
+    {
+      fields: ['bot_id', 'timestamp']
+    }
+  ]
+});
+
 // Relace
 Bot.hasMany(DeployHistory, { foreignKey: 'bot_id', as: 'history', onDelete: 'CASCADE' });
 DeployHistory.belongsTo(Bot, { foreignKey: 'bot_id' });
+
+Bot.hasMany(BotMetrics, { foreignKey: 'bot_id', as: 'metrics', onDelete: 'CASCADE' });
+BotMetrics.belongsTo(Bot, { foreignKey: 'bot_id' });
 
 // Sync databáze
 async function initDatabase() {
@@ -123,5 +164,6 @@ module.exports = {
   User,
   Bot,
   DeployHistory,
+  BotMetrics,
   initDatabase
 };

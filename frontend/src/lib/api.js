@@ -46,6 +46,7 @@ export const botsAPI = {
   restart: (id) => api.post(`/bots/${id}/restart`),
   getLogs: (id, lines = 100) => api.get(`/bots/${id}/logs?lines=${lines}`),
   getHistory: (id) => api.get(`/bots/${id}/history`),
+  getMetrics: (id, hours = 1) => api.get(`/bots/${id}/metrics?hours=${hours}`),
 };
 
 // Stats API

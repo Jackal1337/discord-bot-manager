@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
 import { botsAPI, statsAPI } from '@/lib/api';
 import { formatUptime, formatMemory, formatCPU } from '@/lib/utils';
+import { useSocket } from '@/hooks/useSocket';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,32 +15,27 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import AddBotDialog from '@/components/AddBotDialog';
 
 export default function Dashboard() {
-  const [bots, setBots] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const { logout, user } = useAuth();
   const navigate = useNavigate();
+  const { bots, isConnected } = useSocket();
 
-  const loadData = async () => {
+  const loadStats = async () => {
     try {
-      const [botsRes, statsRes] = await Promise.all([
-        botsAPI.getAll(),
-        statsAPI.get(),
-      ]);
-      setBots(botsRes.data.bots);
+      const statsRes = await statsAPI.get();
       setStats(statsRes.data.stats);
     } catch (error) {
-      toast.error('Chyba při načítání dat');
+      toast.error('Chyba při načítání statistik');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
-    // Auto-refresh každých 5 sekund
-    const interval = setInterval(loadData, 5000);
+    loadStats();
+    const interval = setInterval(loadStats, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -47,7 +43,7 @@ export default function Dashboard() {
     try {
       await botsAPI.start(bot.id);
       toast.success(`Bot "${bot.name}" spuštěn`);
-      loadData();
+      // WebSocket automaticky updatne data
     } catch (error) {
       toast.error(error.response?.data?.message || 'Chyba při spuštění');
     }
@@ -57,7 +53,7 @@ export default function Dashboard() {
     try {
       await botsAPI.stop(bot.id);
       toast.success(`Bot "${bot.name}" zastaven`);
-      loadData();
+      // WebSocket automaticky updatne data
     } catch (error) {
       toast.error(error.response?.data?.message || 'Chyba při zastavení');
     }
@@ -67,7 +63,7 @@ export default function Dashboard() {
     try {
       await botsAPI.restart(bot.id);
       toast.success(`Bot "${bot.name}" restartován`);
-      loadData();
+      // WebSocket automaticky updatne data
     } catch (error) {
       toast.error(error.response?.data?.message || 'Chyba při restartu');
     }
@@ -79,7 +75,7 @@ export default function Dashboard() {
     try {
       await botsAPI.delete(bot.id);
       toast.success(`Bot "${bot.name}" smazán`);
-      loadData();
+      // WebSocket automaticky updatne data
     } catch (error) {
       toast.error(error.response?.data?.message || 'Chyba při mazání');
     }
@@ -118,7 +114,14 @@ export default function Dashboard() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-white">Bot Manager</h1>
-            <p className="text-sm text-slate-400">Vítej, {user?.username}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-sm text-slate-400">Vítej, {user?.username}</p>
+              <span className="text-slate-600">•</span>
+              <div className="flex items-center gap-1">
+                <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                <span className="text-xs text-slate-500">{isConnected ? 'Live' : 'Offline'}</span>
+              </div>
+            </div>
           </div>
           <Button variant="ghost" onClick={logout} className="text-slate-300 hover:text-white hover:bg-slate-800">
             <LogOut className="w-4 h-4 mr-2" />
@@ -252,7 +255,7 @@ export default function Dashboard() {
       </div>
 
       {/* Add Bot Dialog */}
-      <AddBotDialog open={showAddDialog} onClose={() => setShowAddDialog(false)} onSuccess={loadData} />
+      <AddBotDialog open={showAddDialog} onClose={() => setShowAddDialog(false)} onSuccess={loadStats} />
     </div>
   );
 }

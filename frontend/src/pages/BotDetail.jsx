@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Play, Square, RotateCw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 import { botsAPI } from '@/lib/api';
 import { formatUptime, formatMemory, formatCPU } from '@/lib/utils';
@@ -16,6 +17,7 @@ export default function BotDetail() {
   const navigate = useNavigate();
   const [bot, setBot] = useState(null);
   const [logs, setLogs] = useState({ stdout: '', stderr: '' });
+  const [metrics, setMetrics] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadBot = async () => {
@@ -37,10 +39,20 @@ export default function BotDetail() {
     }
   };
 
+  const loadMetrics = async () => {
+    try {
+      const response = await botsAPI.getMetrics(id, 1); // Poslední hodina
+      setMetrics(response.data.metrics);
+    } catch (error) {
+      console.error('Chyba při načítání metrik:', error);
+    }
+  };
+
   useEffect(() => {
     const load = async () => {
       await loadBot();
       await loadLogs();
+      await loadMetrics();
       setLoading(false);
     };
     load();
@@ -51,7 +63,13 @@ export default function BotDetail() {
       loadLogs();
     }, 3000);
 
-    return () => clearInterval(interval);
+    // Refresh metrik každých 10 sekund (méně častěji než zbytek)
+    const metricsInterval = setInterval(loadMetrics, 10000);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(metricsInterval);
+    };
   }, [id]);
 
   const handleStart = async () => {
@@ -199,8 +217,111 @@ export default function BotDetail() {
           </Button>
         </motion.div>
 
+        {/* Grafy CPU a Memory - zobrazit jen pokud jsou data */}
+        {bot.status === 'online' && metrics.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+            {/* CPU Graf */}
+            <Card className="bg-slate-900 border-slate-800">
+              <CardHeader>
+                <CardTitle className="text-white">CPU Usage</CardTitle>
+                <CardDescription className="text-slate-400">Poslední hodina</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={250}>
+                  <LineChart data={metrics}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis
+                      dataKey="timestamp"
+                      stroke="#64748b"
+                      tick={{ fill: '#64748b', fontSize: 12 }}
+                      tickFormatter={(timestamp) => {
+                        const date = new Date(timestamp);
+                        return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+                      }}
+                    />
+                    <YAxis
+                      stroke="#64748b"
+                      tick={{ fill: '#64748b', fontSize: 12 }}
+                      tickFormatter={(value) => `${value.toFixed(1)}%`}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#0f172a',
+                        border: '1px solid #334155',
+                        borderRadius: '8px',
+                        color: '#e2e8f0'
+                      }}
+                      labelFormatter={(timestamp) => {
+                        const date = new Date(timestamp);
+                        return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`;
+                      }}
+                      formatter={(value) => [`${value.toFixed(2)}%`, 'CPU']}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="cpu"
+                      stroke="#60a5fa"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Memory Graf */}
+            <Card className="bg-slate-900 border-slate-800">
+              <CardHeader>
+                <CardTitle className="text-white">Memory Usage</CardTitle>
+                <CardDescription className="text-slate-400">Poslední hodina</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={250}>
+                  <LineChart data={metrics}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis
+                      dataKey="timestamp"
+                      stroke="#64748b"
+                      tick={{ fill: '#64748b', fontSize: 12 }}
+                      tickFormatter={(timestamp) => {
+                        const date = new Date(timestamp);
+                        return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+                      }}
+                    />
+                    <YAxis
+                      stroke="#64748b"
+                      tick={{ fill: '#64748b', fontSize: 12 }}
+                      tickFormatter={(value) => formatMemory(value)}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#0f172a',
+                        border: '1px solid #334155',
+                        borderRadius: '8px',
+                        color: '#e2e8f0'
+                      }}
+                      labelFormatter={(timestamp) => {
+                        const date = new Date(timestamp);
+                        return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`;
+                      }}
+                      formatter={(value) => [formatMemory(value), 'Memory']}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="memory"
+                      stroke="#a78bfa"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
         {/* Logy */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
           <Card className="bg-slate-900 border-slate-800">
             <CardHeader>
               <CardTitle className="text-white">Logy</CardTitle>

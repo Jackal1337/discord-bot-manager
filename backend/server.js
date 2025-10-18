@@ -1,13 +1,23 @@
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const path = require('path');
+const { Server } = require('socket.io');
 require('dotenv').config();
 
-const { initDatabase, Bot, DeployHistory } = require('./db');
+const { initDatabase, Bot, DeployHistory, BotMetrics } = require('./db');
 const { authenticateToken, loginHandler } = require('./authMiddleware');
 const pm2Handler = require('./pm2Handler');
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 // Middleware
@@ -328,6 +338,36 @@ app.get('/api/bots/:id/history', async (req, res) => {
   }
 });
 
+// GET /api/bots/:id/metrics - Metriky CPU/Memory
+app.get('/api/bots/:id/metrics', async (req, res) => {
+  try {
+    const { Sequelize } = require('sequelize');
+    const Op = Sequelize.Op;
+
+    const hours = parseInt(req.query.hours) || 1; // Poslední hodina jako default
+    const limit = parseInt(req.query.limit) || 1000; // Max 1000 záznamů
+
+    const metrics = await BotMetrics.findAll({
+      where: {
+        bot_id: req.params.id,
+        timestamp: {
+          [Op.gte]: new Date(Date.now() - hours * 60 * 60 * 1000)
+        }
+      },
+      order: [['timestamp', 'ASC']],
+      limit: limit
+    });
+
+    res.json({
+      success: true,
+      metrics
+    });
+  } catch (error) {
+    console.error('❌ Chyba při načítání metrik:', error);
+    res.status(500).json({ success: false, message: 'Chyba při načítání metrik' });
+  }
+});
+
 // GET /api/stats - Celkové statistiky
 app.get('/api/stats', authenticateToken, async (req, res) => {
   try {
@@ -426,6 +466,46 @@ app.post('/api/parse-env', authenticateToken, async (req, res) => {
 // SERVER START
 // ============================================
 
+// WebSocket handling
+io.on('connection', (socket) => {
+  console.log('🔌 Client připojen:', socket.id);
+
+  socket.on('disconnect', () => {
+    console.log('❌ Client odpojen:', socket.id);
+  });
+});
+
+// Broadcast bot status každých 3 sekundy
+async function broadcastBotStatus() {
+  try {
+    const bots = await Bot.findAll();
+    const botsWithStatus = await Promise.all(
+      bots.map(async (bot) => {
+        const status = await pm2Handler.getBotStatus(bot.pm2_name);
+
+        // Uložit metriky pro online boty
+        if (status.status === 'online') {
+          await BotMetrics.create({
+            bot_id: bot.id,
+            cpu: status.cpu || 0,
+            memory: status.memory || 0,
+            timestamp: new Date()
+          });
+        }
+
+        return {
+          ...bot.toJSON(),
+          ...status
+        };
+      })
+    );
+
+    io.emit('bots:update', botsWithStatus);
+  } catch (error) {
+    console.error('❌ Chyba při broadcastu statusu:', error);
+  }
+}
+
 async function startServer() {
   try {
     // Připojit k databázi
@@ -435,8 +515,9 @@ async function startServer() {
     await pm2Handler.connectPM2();
 
     // Spustit Express server
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`🚀 Bot Manager API běží na http://localhost:${PORT}`);
+      console.log(`🔌 WebSocket server aktivní`);
       console.log(`📝 Endpoints:`);
       console.log(`   POST   /api/auth/login`);
       console.log(`   GET    /api/bots`);
@@ -451,6 +532,10 @@ async function startServer() {
       console.log(`   GET    /api/bots/:id/history`);
       console.log(`   GET    /api/stats`);
     });
+
+    // Spustit broadcast statusu každých 3 sekundy
+    setInterval(broadcastBotStatus, 3000);
+    console.log('⏱️  Real-time updates aktivní (každých 3s)');
   } catch (error) {
     console.error('❌ Chyba při startu serveru:', error);
     process.exit(1);
