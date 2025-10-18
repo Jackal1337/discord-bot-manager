@@ -1,6 +1,33 @@
 const pm2 = require('pm2');
 const fs = require('fs');
 const path = require('path');
+const { isDemoMode } = require('./demoMiddleware');
+
+// Fake metriky pro demo režim - simuluje "hustý" provoz
+function generateDemoMetrics(pm2Name) {
+  // Různé boty mají různé charakteristiky podle jména
+  const baseValues = {
+    'demo-music-bot': { cpu: 15, memory: 120, variance: 0.3 },
+    'demo-mod-bot': { cpu: 8, memory: 85, variance: 0.2 },
+    'demo-ai-bot': { cpu: 35, memory: 250, variance: 0.5 },
+    'demo-stats-bot': { cpu: 12, memory: 95, variance: 0.25 }
+  };
+
+  // Použít specifické hodnoty pro daný bot, nebo defaulty
+  const base = baseValues[pm2Name] || { cpu: 10, memory: 100, variance: 0.3 };
+
+  // Přidat náhodnou variaci pro realističnost
+  const cpuVariation = (Math.random() - 0.5) * 2 * base.variance;
+  const memoryVariation = (Math.random() - 0.5) * 2 * base.variance;
+
+  return {
+    status: Math.random() > 0.05 ? 'online' : 'online', // 95% online
+    uptime: Date.now() - (Math.random() * 7 * 24 * 60 * 60 * 1000), // Random uptime 0-7 dní
+    cpu: Math.max(0, base.cpu * (1 + cpuVariation)),
+    memory: Math.max(0, base.memory * 1024 * 1024 * (1 + memoryVariation)), // V bajtech
+    restarts: Math.floor(Math.random() * 5) // 0-4 restarty
+  };
+}
 
 // Připojení k PM2 daemon
 function connectPM2() {
@@ -165,6 +192,12 @@ function getBotLogs(pm2Name, lines = 100) {
 
 // Získat status a statistiky bota
 async function getBotStatus(pm2Name) {
+  // V demo režimu vrátit fake metriky
+  if (isDemoMode()) {
+    return generateDemoMetrics(pm2Name);
+  }
+
+  // Produkční režim - reálné PM2 metriky
   const proc = await findProcess(pm2Name);
 
   if (!proc) {
