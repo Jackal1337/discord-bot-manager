@@ -130,17 +130,6 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-3">
             <LanguageSwitcher />
-            {isDemo && (
-              <a
-                href="https://bots.notjackal.eu"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors text-white text-sm font-medium"
-              >
-                <Activity className="w-4 h-4" />
-                {t('productionVersion')}
-              </a>
-            )}
             <Button variant="ghost" onClick={logout} className="text-slate-300 hover:text-white hover:bg-slate-800">
               <LogOut className="w-4 h-4 mr-2" />
               {t('logout')}
