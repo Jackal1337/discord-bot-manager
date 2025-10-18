@@ -23,9 +23,20 @@ export default function Dashboard() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const { logout, user } = useAuth();
   const navigate = useNavigate();
-  const { bots, isConnected } = useSocket();
+  const { bots: socketBots, isConnected } = useSocket();
   const { t } = useLanguage();
   const { isDemo } = useDemo();
+  const [localBots, setLocalBots] = useState([]);
+
+  // V demo režimu používáme lokální kopii botů, jinak WebSocket data
+  const bots = isDemo ? localBots : socketBots;
+
+  // Synchronizovat lokální boty s WebSocket daty
+  useEffect(() => {
+    if (isDemo) {
+      setLocalBots(socketBots);
+    }
+  }, [socketBots, isDemo]);
 
   const loadStats = async () => {
     try {
@@ -48,7 +59,13 @@ export default function Dashboard() {
     try {
       await botsAPI.start(bot.id);
       toast.success(`Bot "${bot.name}" spuštěn`);
-      // WebSocket automaticky updatne data
+
+      // V demo režimu lokálně updatovat stav
+      if (isDemo) {
+        setLocalBots(prev => prev.map(b =>
+          b.id === bot.id ? { ...b, status: 'online', uptime: Date.now() } : b
+        ));
+      }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Chyba při spuštění');
     }
@@ -58,7 +75,13 @@ export default function Dashboard() {
     try {
       await botsAPI.stop(bot.id);
       toast.success(`Bot "${bot.name}" zastaven`);
-      // WebSocket automaticky updatne data
+
+      // V demo režimu lokálně updatovat stav
+      if (isDemo) {
+        setLocalBots(prev => prev.map(b =>
+          b.id === bot.id ? { ...b, status: 'stopped' } : b
+        ));
+      }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Chyba při zastavení');
     }
@@ -68,7 +91,13 @@ export default function Dashboard() {
     try {
       await botsAPI.restart(bot.id);
       toast.success(`Bot "${bot.name}" restartován`);
-      // WebSocket automaticky updatne data
+
+      // V demo režimu lokálně updatovat stav
+      if (isDemo) {
+        setLocalBots(prev => prev.map(b =>
+          b.id === bot.id ? { ...b, status: 'online', restarts: (b.restarts || 0) + 1, uptime: Date.now() } : b
+        ));
+      }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Chyba při restartu');
     }
@@ -80,7 +109,11 @@ export default function Dashboard() {
     try {
       await botsAPI.delete(bot.id);
       toast.success(`Bot "${bot.name}" smazán`);
-      // WebSocket automaticky updatne data
+
+      // V demo režimu lokálně odstranit bota
+      if (isDemo) {
+        setLocalBots(prev => prev.filter(b => b.id !== bot.id));
+      }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Chyba při mazání');
     }
