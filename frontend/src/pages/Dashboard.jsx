@@ -8,11 +8,14 @@ import { useAuth } from '@/lib/auth';
 import { botsAPI, statsAPI } from '@/lib/api';
 import { formatUptime, formatMemory, formatCPU } from '@/lib/utils';
 import { useSocket } from '@/hooks/useSocket';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useDemo } from '@/hooks/useDemo';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import AddBotDialog from '@/components/AddBotDialog';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
@@ -21,6 +24,8 @@ export default function Dashboard() {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
   const { bots, isConnected } = useSocket();
+  const { t } = useLanguage();
+  const { isDemo } = useDemo();
 
   const loadStats = async () => {
     try {
@@ -115,7 +120,7 @@ export default function Dashboard() {
           <div>
             <h1 className="text-2xl font-bold text-white">Bot Manager</h1>
             <div className="flex items-center gap-2 mt-1">
-              <p className="text-sm text-slate-400">Vítej, {user?.username}</p>
+              <p className="text-sm text-slate-400">{t('welcome')}, {user?.username}</p>
               <span className="text-slate-600">•</span>
               <div className="flex items-center gap-1">
                 <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
@@ -123,10 +128,24 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-          <Button variant="ghost" onClick={logout} className="text-slate-300 hover:text-white hover:bg-slate-800">
-            <LogOut className="w-4 h-4 mr-2" />
-            Odhlásit
-          </Button>
+          <div className="flex items-center gap-3">
+            <LanguageSwitcher />
+            {!isDemo && (
+              <a
+                href="https://bots.notjackal.eu"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors text-white text-sm font-medium"
+              >
+                <Activity className="w-4 h-4" />
+                {t('productionVersion')}
+              </a>
+            )}
+            <Button variant="ghost" onClick={logout} className="text-slate-300 hover:text-white hover:bg-slate-800">
+              <LogOut className="w-4 h-4 mr-2" />
+              {t('logout')}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -137,7 +156,7 @@ export default function Dashboard() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
               <Card className="bg-slate-900 border-slate-800">
                 <CardHeader className="pb-3">
-                  <CardDescription className="text-slate-400">Celkem botů</CardDescription>
+                  <CardDescription className="text-slate-400">{t('totalBots')}</CardDescription>
                   <CardTitle className="text-3xl text-white">{stats.total_bots}</CardTitle>
                 </CardHeader>
               </Card>
@@ -145,7 +164,7 @@ export default function Dashboard() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
               <Card className="bg-slate-900 border-slate-800">
                 <CardHeader className="pb-3">
-                  <CardDescription className="text-slate-400">Online</CardDescription>
+                  <CardDescription className="text-slate-400">{t('onlineBots')}</CardDescription>
                   <CardTitle className="text-3xl text-emerald-400">{stats.online}</CardTitle>
                 </CardHeader>
               </Card>
@@ -153,7 +172,7 @@ export default function Dashboard() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
               <Card className="bg-slate-900 border-slate-800">
                 <CardHeader className="pb-3">
-                  <CardDescription className="text-slate-400">CPU Usage</CardDescription>
+                  <CardDescription className="text-slate-400">{t('totalCPU')}</CardDescription>
                   <CardTitle className="text-3xl text-blue-400">{formatCPU(stats.total_cpu)}</CardTitle>
                 </CardHeader>
               </Card>
@@ -161,7 +180,7 @@ export default function Dashboard() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
               <Card className="bg-slate-900 border-slate-800">
                 <CardHeader className="pb-3">
-                  <CardDescription className="text-slate-400">Memory</CardDescription>
+                  <CardDescription className="text-slate-400">{t('totalMemory')}</CardDescription>
                   <CardTitle className="text-3xl text-purple-400">{formatMemory(stats.total_memory)}</CardTitle>
                 </CardHeader>
               </Card>
@@ -171,10 +190,10 @@ export default function Dashboard() {
 
         {/* Add Bot Button */}
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-white">Moji boti</h2>
+          <h2 className="text-xl font-semibold text-white">{t('bots')}</h2>
           <Button onClick={() => setShowAddDialog(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            Přidat bota
+            {t('addBot')}
           </Button>
         </div>
 
@@ -182,7 +201,7 @@ export default function Dashboard() {
         {bots.length === 0 ? (
           <Card className="bg-slate-900 border-slate-800">
             <CardContent className="py-12 text-center text-slate-400">
-              Zatím nemáš žádné boty. Přidej prvního!
+              {t('noBotDescription')}
             </CardContent>
           </Card>
         ) : (

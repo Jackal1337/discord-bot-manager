@@ -5,10 +5,11 @@ const path = require('path');
 const { Server } = require('socket.io');
 require('dotenv').config();
 
-const { initDatabase, Bot, DeployHistory, BotMetrics } = require('./db');
+const { initDatabase, Bot, DeployHistory, BotMetrics, User } = require('./db');
 const { authenticateToken, loginHandler } = require('./authMiddleware');
 const { demoMiddleware, isDemoMode } = require('./demoMiddleware');
 const pm2Handler = require('./pm2Handler');
+const bcrypt = require('bcrypt');
 
 const app = express();
 const server = http.createServer(app);
@@ -383,7 +384,7 @@ app.get('/api/bots/:id/metrics', async (req, res) => {
 });
 
 // GET /api/stats - Celkové statistiky
-app.get('/api/stats', authenticateToken, async (req, res) => {
+app.get('/api/stats', async (req, res) => {
   try {
     const bots = await Bot.findAll();
     const processes = await pm2Handler.listProcesses();
@@ -520,10 +521,101 @@ async function broadcastBotStatus() {
   }
 }
 
+// Seed demo data pro in-memory databázi
+async function seedDemoData() {
+  console.log('🌱 Seeduji demo data...');
+
+  // Zkontrolovat, jestli už data neexistují
+  const existingUser = await User.findOne({ where: { username: 'demo' } });
+  if (existingUser) {
+    console.log('✅ Demo data už existují, přeskakuji seeding');
+    return;
+  }
+
+  // Demo user
+  const passwordHash = await bcrypt.hash('demo', 10);
+  await User.create({ username: 'demo', password_hash: passwordHash });
+
+  // Demo boty
+  const demoBots = [
+    {
+      name: 'Music Bot',
+      type: 'nodejs',
+      script_path: '/demo/bots/music-bot/index.js',
+      pm2_name: 'demo-music-bot',
+      env_vars: JSON.stringify({ TOKEN: 'demo_token_music', PREFIX: '!' }),
+      auto_restart: true
+    },
+    {
+      name: 'Moderation Bot',
+      type: 'nodejs',
+      script_path: '/demo/bots/mod-bot/index.js',
+      pm2_name: 'demo-mod-bot',
+      env_vars: JSON.stringify({ TOKEN: 'demo_token_mod', PREFIX: '.' }),
+      auto_restart: true
+    },
+    {
+      name: 'AI Chatbot',
+      type: 'python',
+      script_path: '/demo/bots/ai-bot/main.py',
+      pm2_name: 'demo-ai-bot',
+      env_vars: JSON.stringify({ DISCORD_TOKEN: 'demo_token_ai' }),
+      auto_restart: false
+    },
+    {
+      name: 'Stats Tracker',
+      type: 'nodejs',
+      script_path: '/demo/bots/stats-bot/index.js',
+      pm2_name: 'demo-stats-bot',
+      env_vars: JSON.stringify({ TOKEN: 'demo_token_stats' }),
+      auto_restart: true
+    }
+  ];
+
+  for (const botData of demoBots) {
+    const bot = await Bot.create(botData);
+
+    // Historie akcí
+    await DeployHistory.create({
+      bot_id: bot.id,
+      action: 'created',
+      timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    });
+    await DeployHistory.create({
+      bot_id: bot.id,
+      action: 'start',
+      timestamp: new Date(Date.now() - 12 * 60 * 60 * 1000)
+    });
+  }
+
+  // Metriky pro první 2 boty
+  const bots = await Bot.findAll({ limit: 2 });
+  for (const bot of bots) {
+    const now = Date.now();
+    const oneHourAgo = now - 60 * 60 * 1000;
+
+    for (let time = oneHourAgo; time <= now; time += 3 * 60 * 1000) {
+      await BotMetrics.create({
+        bot_id: bot.id,
+        cpu: 5 + Math.random() * 15,
+        memory: 50 * 1024 * 1024 + Math.random() * 100 * 1024 * 1024,
+        timestamp: new Date(time)
+      });
+    }
+  }
+
+  console.log('✅ Demo data seednutá (demo/demo)');
+}
+
 async function startServer() {
   try {
     // Připojit k databázi
     await initDatabase();
+
+    // Pokud je demo režim, seed data
+    if (isDemoMode()) {
+      await seedDemoData();
+    }
 
     // Připojit k PM2
     await pm2Handler.connectPM2();
