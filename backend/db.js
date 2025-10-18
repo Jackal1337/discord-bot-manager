@@ -59,6 +59,10 @@ const Bot = sequelize.define('Bot', {
   env_vars: {
     type: DataTypes.TEXT, // JSON string
     defaultValue: '{}'
+  },
+  auto_restart: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true // Auto-restart zapnutý defaultně
   }
 }, {
   tableName: 'bots',

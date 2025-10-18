@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, FileText } from 'lucide-react';
+import { X, FileText, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { botsAPI, envAPI } from '@/lib/api';
@@ -172,17 +172,44 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
                     <p className="text-xs text-slate-400">JSON formát</p>
                   </div>
 
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="auto_restart"
-                      checked={formData.auto_restart}
-                      onChange={(e) => setFormData({ ...formData, auto_restart: e.target.checked })}
-                      className="w-4 h-4 text-blue-600 bg-slate-800 border-slate-700 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
-                    />
-                    <Label htmlFor="auto_restart" className="text-slate-200 cursor-pointer">
-                      Automatický restart při pádu
-                    </Label>
+                  <div className="space-y-2">
+                    <Label className="text-slate-200">Automatický restart</Label>
+                    <div
+                      onClick={() => setFormData({ ...formData, auto_restart: !formData.auto_restart })}
+                      className={`
+                        flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all
+                        ${formData.auto_restart
+                          ? 'bg-blue-500/10 border-blue-500 hover:bg-blue-500/20'
+                          : 'bg-slate-800 border-slate-700 hover:bg-slate-700'
+                        }
+                      `}
+                    >
+                      <div className={`
+                        w-10 h-10 rounded-lg flex items-center justify-center
+                        ${formData.auto_restart ? 'bg-blue-500/20' : 'bg-slate-700'}
+                      `}>
+                        <RefreshCw className={`w-5 h-5 ${formData.auto_restart ? 'text-blue-400' : 'text-slate-500'}`} />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`font-medium ${formData.auto_restart ? 'text-white' : 'text-slate-300'}`}>
+                            Automatický restart při pádu
+                          </span>
+                          <div className={`
+                            w-11 h-6 rounded-full relative transition-colors
+                            ${formData.auto_restart ? 'bg-blue-500' : 'bg-slate-600'}
+                          `}>
+                            <div className={`
+                              absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform
+                              ${formData.auto_restart ? 'translate-x-5' : 'translate-x-0.5'}
+                            `} />
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">
+                          PM2 automaticky restartuje bota při chybě (max 10×)
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex gap-2 justify-end">

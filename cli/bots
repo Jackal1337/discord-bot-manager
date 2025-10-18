@@ -203,6 +203,9 @@ async function add() {
     }
   }
 
+  const autoRestartInput = await question('Automatický restart při pádu? (y/n, výchozí: y): ');
+  const auto_restart = autoRestartInput.toLowerCase() !== 'n';
+
   readline.close();
 
   try {
@@ -210,7 +213,8 @@ async function add() {
       name,
       type: type === 'python' ? 'python' : 'nodejs',
       script_path,
-      env_vars
+      env_vars,
+      auto_restart
     });
 
     console.log(`\n✅ Bot "${name}" přidán (ID: ${data.bot.id})`);

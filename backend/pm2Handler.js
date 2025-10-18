@@ -60,10 +60,10 @@ function startBot(botConfig) {
       interpreter: botConfig.type === 'python' ? 'python3' : 'node',
       cwd: path.dirname(botConfig.script_path),
       env: env,
-      autorestart: true,
-      max_restarts: 10,
-      min_uptime: '10s',
-      restart_delay: 4000
+      autorestart: botConfig.auto_restart !== false, // Default true, pokud není explicitně false
+      max_restarts: botConfig.auto_restart !== false ? 10 : 0,
+      min_uptime: botConfig.auto_restart !== false ? '10s' : undefined,
+      restart_delay: botConfig.auto_restart !== false ? 4000 : undefined
     };
 
     pm2.start(pm2Config, (err, proc) => {

@@ -101,7 +101,7 @@ app.get('/api/bots/:id', async (req, res) => {
 // POST /api/bots - Přidat nového bota
 app.post('/api/bots', async (req, res) => {
   try {
-    const { name, type, script_path, env_vars } = req.body;
+    const { name, type, script_path, env_vars, auto_restart } = req.body;
 
     // Validace
     if (!name || !type || !script_path) {
@@ -127,7 +127,8 @@ app.post('/api/bots', async (req, res) => {
       type,
       script_path,
       pm2_name,
-      env_vars: env_vars || '{}'
+      env_vars: env_vars || '{}',
+      auto_restart: auto_restart !== undefined ? auto_restart : true
     });
 
     res.json({
@@ -149,12 +150,13 @@ app.put('/api/bots/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Bot nenalezen' });
     }
 
-    const { name, script_path, env_vars } = req.body;
+    const { name, script_path, env_vars, auto_restart } = req.body;
 
     // Update jen pokud jsou hodnoty poskytnuté
     if (name) bot.name = name;
     if (script_path) bot.script_path = script_path;
     if (env_vars) bot.env_vars = env_vars;
+    if (auto_restart !== undefined) bot.auto_restart = auto_restart;
 
     await bot.save();
 
