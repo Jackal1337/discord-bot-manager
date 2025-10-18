@@ -152,6 +152,31 @@ function deleteBot(pm2Name) {
 
 // Získat logy bota (poslední N řádků)
 function getBotLogs(pm2Name, lines = 100) {
+  // V demo režimu vrátit fake logy
+  if (isDemoMode()) {
+    const fakeLogs = [
+      '[2025-10-18 14:30:15] Bot started successfully',
+      '[2025-10-18 14:30:16] Connected to Discord API',
+      '[2025-10-18 14:30:17] Logged in as ' + pm2Name,
+      '[2025-10-18 14:30:18] Ready! Serving 142 guilds',
+      '[2025-10-18 14:31:22] Command executed: !play - by User#1234',
+      '[2025-10-18 14:32:45] Command executed: !skip - by Admin#5678',
+      '[2025-10-18 14:35:10] Joined voice channel: Music Lounge',
+      '[2025-10-18 14:37:33] Now playing: Rick Astley - Never Gonna Give You Up',
+      '[2025-10-18 14:40:05] Command executed: !queue - by User#9012',
+      '[2025-10-18 14:42:18] Memory usage: 120 MB, CPU: 15%',
+      '[2025-10-18 14:45:30] Heartbeat acknowledged',
+      '[2025-10-18 14:47:12] Command executed: !help - by NewUser#3456',
+      '[2025-10-18 14:50:00] Active connections: 3 voice channels'
+    ];
+
+    return Promise.resolve({
+      stdout: fakeLogs.slice(-lines).join('\n'),
+      stderr: '' // Žádné chyby v demo módu
+    });
+  }
+
+  // Produkční režim - reálné PM2 logy
   return new Promise((resolve, reject) => {
     pm2.describe(pm2Name, (err, processDescription) => {
       if (err || !processDescription || processDescription.length === 0) {

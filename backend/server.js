@@ -387,6 +387,30 @@ app.get('/api/bots/:id/metrics', async (req, res) => {
 app.get('/api/stats', async (req, res) => {
   try {
     const bots = await Bot.findAll();
+
+    // V demo režimu použít fake metriky
+    if (isDemoMode()) {
+      const botsWithStatus = await Promise.all(
+        bots.map(async (bot) => {
+          const status = await pm2Handler.getBotStatus(bot.pm2_name);
+          return { ...bot.toJSON(), ...status };
+        })
+      );
+
+      const onlineBots = botsWithStatus.filter(b => b.status === 'online');
+
+      const stats = {
+        total_bots: bots.length,
+        online: onlineBots.length,
+        offline: bots.length - onlineBots.length,
+        total_cpu: onlineBots.reduce((sum, b) => sum + (b.cpu || 0), 0),
+        total_memory: onlineBots.reduce((sum, b) => sum + (b.memory || 0), 0)
+      };
+
+      return res.json({ success: true, stats });
+    }
+
+    // Produkční režim - reálná PM2 data
     const processes = await pm2Handler.listProcesses();
 
     // Spočítat online/offline
