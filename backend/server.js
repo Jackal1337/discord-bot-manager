@@ -131,6 +131,14 @@ app.post('/api/bots', async (req, res) => {
       });
     }
 
+    // V demo režimu jen vrátit success - nic se reálně neděje
+    if (isDemoMode()) {
+      return res.json({
+        success: true,
+        message: 'Bot přidán (demo - po refreshi zmizí)'
+      });
+    }
+
     // Vytvořit PM2 název (unique)
     const pm2_name = `bot-${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
 
@@ -163,6 +171,11 @@ app.put('/api/bots/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Bot nenalezen' });
     }
 
+    // V demo režimu jen vrátit success - nic se reálně neděje
+    if (isDemoMode()) {
+      return res.json({ success: true, message: 'Bot upraven (demo - po refreshi zmizí)' });
+    }
+
     const { name, script_path, env_vars, auto_restart } = req.body;
 
     // Update jen pokud jsou hodnoty poskytnuté
@@ -190,6 +203,11 @@ app.delete('/api/bots/:id', async (req, res) => {
     const bot = await Bot.findByPk(req.params.id);
     if (!bot) {
       return res.status(404).json({ success: false, message: 'Bot nenalezen' });
+    }
+
+    // V demo režimu jen vrátit success - nic se reálně neděje
+    if (isDemoMode()) {
+      return res.json({ success: true, message: `Bot "${bot.name}" smazán (demo)` });
     }
 
     // Zastavit a smazat z PM2 (pokud běží)
