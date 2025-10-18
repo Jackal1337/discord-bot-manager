@@ -3,9 +3,10 @@ const path = require('path');
 require('dotenv').config();
 
 // SQLite databáze
+const dbPath = process.env.DB_PATH || '../bot-manager.db';
 const sequelize = new Sequelize({
   dialect: 'sqlite',
-  storage: path.resolve(__dirname, process.env.DB_PATH || '../bot-manager.db'),
+  storage: dbPath === ':memory:' ? ':memory:' : path.resolve(__dirname, dbPath),
   logging: false // Vypnout SQL logy (pro production)
 });
 
