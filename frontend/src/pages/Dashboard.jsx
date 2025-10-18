@@ -130,7 +130,7 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-3">
             <LanguageSwitcher />
-            {!isDemo && (
+            {isDemo && (
               <a
                 href="https://bots.notjackal.eu"
                 target="_blank"
