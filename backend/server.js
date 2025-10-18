@@ -516,6 +516,7 @@ async function broadcastBotStatus() {
     );
 
     io.emit('bots:update', botsWithStatus);
+    console.log(`📡 Broadcast: ${botsWithStatus.length} botů odesláno (${botsWithStatus.filter(b => b.status === 'online').length} online)`);
   } catch (error) {
     console.error('❌ Chyba při broadcastu statusu:', error);
   }
