@@ -7,6 +7,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 import { botsAPI } from '@/lib/api';
 import { formatUptime, formatMemory, formatCPU } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +16,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 export default function BotDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [bot, setBot] = useState(null);
   const [logs, setLogs] = useState({ stdout: '', stderr: '' });
   const [metrics, setMetrics] = useState([]);
@@ -25,7 +27,7 @@ export default function BotDetail() {
       const response = await botsAPI.getOne(id);
       setBot(response.data.bot);
     } catch (error) {
-      toast.error('Chyba při načítání bota');
+      toast.error(t('errorLoadingBot'));
       navigate('/');
     }
   };
@@ -35,16 +37,16 @@ export default function BotDetail() {
       const response = await botsAPI.getLogs(id, 200);
       setLogs(response.data.logs);
     } catch (error) {
-      console.error('Chyba při načítání logů:', error);
+      console.error(t('errorLoadingLogs'), error);
     }
   };
 
   const loadMetrics = async () => {
     try {
-      const response = await botsAPI.getMetrics(id, 1); // Poslední hodina
+      const response = await botsAPI.getMetrics(id, 1);
       setMetrics(response.data.metrics);
     } catch (error) {
-      console.error('Chyba při načítání metrik:', error);
+      console.error(t('errorLoadingMetrics'), error);
     }
   };
 
@@ -75,59 +77,59 @@ export default function BotDetail() {
   const handleStart = async () => {
     try {
       await botsAPI.start(id);
-      toast.success('Bot spuštěn');
+      toast.success(t('botStarted'));
       loadBot();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Chyba při spuštění');
+      toast.error(error.response?.data?.message || t('errorStarting'));
     }
   };
 
   const handleStop = async () => {
     try {
       await botsAPI.stop(id);
-      toast.success('Bot zastaven');
+      toast.success(t('botStopped'));
       loadBot();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Chyba při zastavení');
+      toast.error(error.response?.data?.message || t('errorStopping'));
     }
   };
 
   const handleRestart = async () => {
     try {
       await botsAPI.restart(id);
-      toast.success('Bot restartován');
+      toast.success(t('botRestarted'));
       loadBot();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Chyba při restartu');
+      toast.error(error.response?.data?.message || t('errorRestarting'));
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Opravdu smazat bota "${bot.name}"?`)) return;
+    if (!confirm(`${t('confirmDeleteBot')} "${bot.name}"?`)) return;
 
     try {
       await botsAPI.delete(id);
-      toast.success('Bot smazán');
+      toast.success(t('botDeleted'));
       navigate('/');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Chyba při mazání');
+      toast.error(error.response?.data?.message || t('errorDeleting'));
     }
   };
 
   const getStatusBadge = (status) => {
     const statusMap = {
-      online: { className: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', text: 'Online', dot: 'bg-emerald-500' },
-      stopped: { className: 'bg-slate-500/20 text-slate-400 border-slate-500/30', text: 'Offline', dot: 'bg-slate-500' },
-      stopping: { className: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', text: 'Zastavuji', dot: 'bg-yellow-500' },
-      errored: { className: 'bg-red-500/20 text-red-400 border-red-500/30', text: 'Chyba', dot: 'bg-red-500' },
-      offline: { className: 'bg-slate-500/20 text-slate-400 border-slate-500/30', text: 'Offline', dot: 'bg-slate-500' },
+      online: { className: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', textKey: 'online', dot: 'bg-emerald-500' },
+      stopped: { className: 'bg-slate-500/20 text-slate-400 border-slate-500/30', textKey: 'offline', dot: 'bg-slate-500' },
+      stopping: { className: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', textKey: 'stopping', dot: 'bg-yellow-500' },
+      errored: { className: 'bg-red-500/20 text-red-400 border-red-500/30', textKey: 'errored', dot: 'bg-red-500' },
+      offline: { className: 'bg-slate-500/20 text-slate-400 border-slate-500/30', textKey: 'offline', dot: 'bg-slate-500' },
     };
 
     const config = statusMap[status] || statusMap.offline;
     return (
       <Badge className={config.className}>
         <span className={`inline-block w-2 h-2 rounded-full ${config.dot} mr-2`}></span>
-        {config.text}
+        {t(config.textKey)}
       </Badge>
     );
   };
@@ -135,7 +137,7 @@ export default function BotDetail() {
   if (loading || !bot) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950">
-        <p className="text-slate-400">Načítám...</p>
+        <p className="text-slate-400">{t('loading')}</p>
       </div>
     );
   }
@@ -147,7 +149,7 @@ export default function BotDetail() {
         <div className="container mx-auto px-4 py-4">
           <Button variant="ghost" onClick={() => navigate('/')} className="mb-4 text-slate-300 hover:text-white hover:bg-slate-800">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Zpět na dashboard
+            {t('backToDashboard')}
           </Button>
           <div className="flex items-center justify-between">
             <div>
@@ -198,22 +200,22 @@ export default function BotDetail() {
             <>
               <Button variant="outline" onClick={handleStop} className="bg-slate-800 border-slate-700 hover:bg-slate-700 text-white">
                 <Square className="w-4 h-4 mr-2" />
-                Zastavit
+                {t('stop')}
               </Button>
               <Button variant="outline" onClick={handleRestart} className="bg-slate-800 border-slate-700 hover:bg-slate-700 text-white">
                 <RotateCw className="w-4 h-4 mr-2" />
-                Restartovat
+                {t('restart')}
               </Button>
             </>
           ) : (
             <Button onClick={handleStart} className="bg-emerald-600 hover:bg-emerald-700 text-white">
               <Play className="w-4 h-4 mr-2" />
-              Spustit
+              {t('start')}
             </Button>
           )}
           <Button variant="destructive" onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
             <Trash2 className="w-4 h-4 mr-2" />
-            Smazat
+            {t('delete')}
           </Button>
         </motion.div>
 
@@ -223,8 +225,8 @@ export default function BotDetail() {
             {/* CPU Graf */}
             <Card className="bg-slate-900 border-slate-800">
               <CardHeader>
-                <CardTitle className="text-white">CPU Usage</CardTitle>
-                <CardDescription className="text-slate-400">Poslední hodina</CardDescription>
+                <CardTitle className="text-white">{t('cpuUsage')}</CardTitle>
+                <CardDescription className="text-slate-400">{t('lastHour')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={250}>
@@ -272,8 +274,8 @@ export default function BotDetail() {
             {/* Memory Graf */}
             <Card className="bg-slate-900 border-slate-800">
               <CardHeader>
-                <CardTitle className="text-white">Memory Usage</CardTitle>
-                <CardDescription className="text-slate-400">Poslední hodina</CardDescription>
+                <CardTitle className="text-white">{t('memoryUsage')}</CardTitle>
+                <CardDescription className="text-slate-400">{t('lastHour')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={250}>
@@ -324,8 +326,8 @@ export default function BotDetail() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
           <Card className="bg-slate-900 border-slate-800">
             <CardHeader>
-              <CardTitle className="text-white">Logy</CardTitle>
-              <CardDescription className="text-slate-400">Poslední výstupy z konzole</CardDescription>
+              <CardTitle className="text-white">{t('logs')}</CardTitle>
+              <CardDescription className="text-slate-400">{t('logsDescription')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="bg-black/50 border border-slate-800 rounded-lg p-4 font-mono text-sm max-h-[500px] overflow-y-auto">
@@ -342,7 +344,7 @@ export default function BotDetail() {
                   </div>
                 )}
                 {!logs.stdout && !logs.stderr && (
-                  <div className="text-slate-500">Zatím žádné logy...</div>
+                  <div className="text-slate-500">{t('noLogsYet')}</div>
                 )}
               </div>
             </CardContent>

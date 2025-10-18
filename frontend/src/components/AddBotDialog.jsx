@@ -4,12 +4,14 @@ import { X, FileText, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { botsAPI, envAPI } from '@/lib/api';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 export default function AddBotDialog({ open, onClose, onSuccess }) {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     name: '',
     type: 'nodejs',
@@ -26,13 +28,13 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
 
     try {
       await botsAPI.create(formData);
-      toast.success('Bot přidán');
+      toast.success(t('botAdded'));
       onSuccess();
       onClose();
       // Reset form
       setFormData({ name: '', type: 'nodejs', script_path: '', env_vars: '', auto_restart: true });
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Chyba při přidávání bota');
+      toast.error(error.response?.data?.message || t('errorAddingBot'));
     } finally {
       setLoading(false);
     }
@@ -40,7 +42,7 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
 
   const handleLoadEnv = async () => {
     if (!formData.script_path) {
-      toast.error('Nejdřív zadej cestu ke scriptu');
+      toast.error(t('enterScriptPathFirst'));
       return;
     }
 
@@ -59,11 +61,11 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
           });
           toast.success(response.data.message);
         } else {
-          toast.info('.env soubor nenalezen nebo je prázdný');
+          toast.info(t('envFileNotFound'));
         }
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Chyba při načítání .env');
+      toast.error(error.response?.data?.message || t('errorLoadingEnv'));
     } finally {
       setLoadingEnv(false);
     }
@@ -92,7 +94,7 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
             <Card className="w-full max-w-lg bg-slate-900 border-slate-800 shadow-2xl">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-white">Přidat nového bota</CardTitle>
+                  <CardTitle className="text-white">{t('addNewBot')}</CardTitle>
                   <Button variant="ghost" size="icon" onClick={onClose} className="text-slate-400 hover:text-white hover:bg-slate-800">
                     <X className="w-4 h-4" />
                   </Button>
@@ -101,10 +103,10 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name" className="text-slate-200">Název bota</Label>
+                    <Label htmlFor="name" className="text-slate-200">{t('botNameLabel')}</Label>
                     <Input
                       id="name"
-                      placeholder="např. Music Bot"
+                      placeholder={t('botNamePlaceholder2')}
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       required
@@ -113,7 +115,7 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="type" className="text-slate-200">Typ</Label>
+                    <Label htmlFor="type" className="text-slate-200">{t('type')}</Label>
                     <div className="flex gap-2">
                       <Button
                         type="button"
@@ -135,11 +137,11 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="script_path" className="text-slate-200">Cesta ke scriptu</Label>
+                    <Label htmlFor="script_path" className="text-slate-200">{t('scriptPathLabel')}</Label>
                     <div className="flex gap-2">
                       <Input
                         id="script_path"
-                        placeholder="/home/user/bots/music-bot/index.js"
+                        placeholder={t('scriptPathPlaceholder2')}
                         value={formData.script_path}
                         onChange={(e) => setFormData({ ...formData, script_path: e.target.value })}
                         required
@@ -152,28 +154,28 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
                         className="bg-slate-700 hover:bg-slate-600 text-white"
                       >
                         <FileText className="w-4 h-4 mr-2" />
-                        {loadingEnv ? 'Načítám...' : 'Načíst .env'}
+                        {loadingEnv ? t('loadingEnv') : t('loadEnv')}
                       </Button>
                     </div>
                     <p className="text-xs text-slate-400">
-                      Absolutní cesta k hlavnímu souboru bota
+                      {t('scriptPathHint')}
                     </p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="env_vars" className="text-slate-200">ENV Variables (volitelné)</Label>
+                    <Label htmlFor="env_vars" className="text-slate-200">{t('envVarsLabel')}</Label>
                     <textarea
                       id="env_vars"
                       className="flex min-h-[100px] w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white ring-offset-background placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      placeholder='{"TOKEN": "xxx", "PREFIX": "!"}'
+                      placeholder={t('envVarsPlaceholder2')}
                       value={formData.env_vars}
                       onChange={(e) => setFormData({ ...formData, env_vars: e.target.value })}
                     />
-                    <p className="text-xs text-slate-400">JSON formát</p>
+                    <p className="text-xs text-slate-400">{t('jsonFormat')}</p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-slate-200">Automatický restart</Label>
+                    <Label className="text-slate-200">{t('autoRestartLabel')}</Label>
                     <div
                       onClick={() => setFormData({ ...formData, auto_restart: !formData.auto_restart })}
                       className={`
@@ -193,7 +195,7 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className={`font-medium ${formData.auto_restart ? 'text-white' : 'text-slate-300'}`}>
-                            Automatický restart při pádu
+                            {t('autoRestartTitle2')}
                           </span>
                           <div className={`
                             w-11 h-6 rounded-full relative transition-colors
@@ -206,7 +208,7 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
                           </div>
                         </div>
                         <p className="text-xs text-slate-400 mt-1">
-                          PM2 automaticky restartuje bota při chybě (max 10×)
+                          {t('autoRestartDescription2')}
                         </p>
                       </div>
                     </div>
@@ -214,10 +216,10 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
 
                   <div className="flex gap-2 justify-end">
                     <Button type="button" variant="outline" onClick={onClose} className="bg-slate-800 border-slate-700 text-white hover:bg-slate-700">
-                      Zrušit
+                      {t('cancelButton')}
                     </Button>
                     <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
-                      {loading ? 'Přidávám...' : 'Přidat bota'}
+                      {loading ? t('addingBot') : t('addBotButton')}
                     </Button>
                   </div>
                 </form>
