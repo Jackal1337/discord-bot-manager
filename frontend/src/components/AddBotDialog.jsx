@@ -15,6 +15,7 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
     type: 'nodejs',
     script_path: '',
     env_vars: '',
+    auto_restart: true,
   });
   const [loading, setLoading] = useState(false);
   const [loadingEnv, setLoadingEnv] = useState(false);
@@ -29,7 +30,7 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
       onSuccess();
       onClose();
       // Reset form
-      setFormData({ name: '', type: 'nodejs', script_path: '', env_vars: '' });
+      setFormData({ name: '', type: 'nodejs', script_path: '', env_vars: '', auto_restart: true });
     } catch (error) {
       toast.error(error.response?.data?.message || 'Chyba při přidávání bota');
     } finally {
@@ -169,6 +170,19 @@ export default function AddBotDialog({ open, onClose, onSuccess }) {
                       onChange={(e) => setFormData({ ...formData, env_vars: e.target.value })}
                     />
                     <p className="text-xs text-slate-400">JSON formát</p>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="auto_restart"
+                      checked={formData.auto_restart}
+                      onChange={(e) => setFormData({ ...formData, auto_restart: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 bg-slate-800 border-slate-700 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                    />
+                    <Label htmlFor="auto_restart" className="text-slate-200 cursor-pointer">
+                      Automatický restart při pádu
+                    </Label>
                   </div>
 
                   <div className="flex gap-2 justify-end">
