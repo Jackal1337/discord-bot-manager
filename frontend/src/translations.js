@@ -59,7 +59,7 @@ export const translations = {
 
     // Demo Banner
     demoMode: 'Demo režim',
-    demoDescription: 'Data se po restartu serveru vymažou. Můžeš vše vyzkoušet!',
+    demoDescription: 'Data se resetují při restartu serveru - vyzkoušej všechny funkce!',
     viewGithub: 'GitHub',
     productionVersion: 'Produkční verze',
 
@@ -183,7 +183,7 @@ export const translations = {
 
     // Demo Banner
     demoMode: 'Demo Mode',
-    demoDescription: 'Data will be cleared on server restart. Feel free to try everything!',
+    demoDescription: 'Data resets on server restart - try all features!',
     viewGithub: 'GitHub',
     productionVersion: 'Production Version',
 
