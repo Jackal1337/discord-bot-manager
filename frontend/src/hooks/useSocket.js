@@ -10,7 +10,7 @@ export function useSocket() {
   const [bots, setBots] = useState([]);
 
   useEffect(() => {
-    // Vytvořit socket spojení
+    // Vytvořit socket spojení pokud neexistuje
     if (!socket) {
       socket = io(SOCKET_URL, {
         transports: ['websocket', 'polling'],
@@ -25,14 +25,23 @@ export function useSocket() {
         console.log('❌ WebSocket odpojen');
         setIsConnected(false);
       });
-
-      socket.on('bots:update', (data) => {
-        setBots(data);
-      });
     }
 
+    // Handler pro aktuální komponentu
+    const handleBotsUpdate = (data) => {
+      console.log('📥 Přijato:', data.length, 'botů');
+      setBots(data);
+    };
+
+    // Přidat listener pro tuto komponentu
+    socket.on('bots:update', handleBotsUpdate);
+
+    // Nastavit aktuální connection status
+    setIsConnected(socket.connected);
+
     return () => {
-      // Neodpojovat socket při unmount - sdílíme ho napříč komponentami
+      // Odebrat listener této komponenty při unmount
+      socket.off('bots:update', handleBotsUpdate);
     };
   }, []);
 
