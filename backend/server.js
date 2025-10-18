@@ -224,12 +224,8 @@ app.post('/api/bots/:id/start', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Bot nenalezen' });
     }
 
-    // V demo režimu jen update status v databázi
+    // V demo režimu jen vrátit success - nic se reálně neděje
     if (isDemoMode()) {
-      await bot.update({
-        status: 'online',
-        uptime: Date.now()
-      });
       return res.json({ success: true, message: `Bot "${bot.name}" spuštěn (demo)` });
     }
 
@@ -270,9 +266,8 @@ app.post('/api/bots/:id/stop', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Bot nenalezen' });
     }
 
-    // V demo režimu jen update status v databázi
+    // V demo režimu jen vrátit success - nic se reálně neděje
     if (isDemoMode()) {
-      await bot.update({ status: 'stopped' });
       return res.json({ success: true, message: `Bot "${bot.name}" zastaven (demo)` });
     }
 
@@ -303,12 +298,8 @@ app.post('/api/bots/:id/restart', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Bot nenalezen' });
     }
 
-    // V demo režimu jen update status v databázi
+    // V demo režimu jen vrátit success - nic se reálně neděje
     if (isDemoMode()) {
-      await bot.update({
-        status: 'online',
-        restarts: (bot.restarts || 0) + 1
-      });
       return res.json({ success: true, message: `Bot "${bot.name}" restartován (demo)` });
     }
 
