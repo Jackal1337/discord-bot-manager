@@ -10,28 +10,64 @@ const { authenticateToken, loginHandler } = require('./authMiddleware');
 const { demoMiddleware, isDemoMode } = require('./demoMiddleware');
 const pm2Handler = require('./pm2Handler');
 const bcrypt = require('bcrypt');
+const logger = require('./logger');
+const {
+  globalLimiter,
+  loginLimiter,
+  botOperationsLimiter,
+  helmetConfig,
+  getCorsOptions,
+  validateBotCreate,
+  validateBotUpdate,
+  validateBotId,
+  validateLogsQuery,
+  validateMetricsQuery,
+  validateParseEnv
+} = require('./securityMiddleware');
+const {
+  register: metricsRegister,
+  metricsMiddleware,
+  updateBotMetrics,
+  incrementBotRestart,
+  setWebSocketConnections
+} = require('./monitoring');
 
 const app = express();
 const server = http.createServer(app);
+
+// CORS konfigurace pro Socket.IO - použít stejnou whitelist
+const socketCorsOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:5173', 'http://localhost:3000'];
+
 const io = new Server(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
+    origin: socketCorsOrigins,
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// Security Middleware
+app.use(helmetConfig);
+app.use(cors(getCorsOptions()));
+app.use(express.json({ limit: '1mb' })); // Limit request body size
+app.use(globalLimiter);
+app.use(metricsMiddleware);
 
 // Demo middleware (blokuje write operace v demo režimu)
 app.use(demoMiddleware);
 
-// Logování requestů
+// Logování requestů pomocí Winston
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  logger.info('HTTP Request', {
+    method: req.method,
+    path: req.path,
+    ip: req.ip,
+    user: req.user?.username
+  });
   next();
 });
 
@@ -39,11 +75,40 @@ app.use((req, res, next) => {
 // PUBLIC ROUTES (bez autentifikace)
 // ============================================
 
-app.post('/api/auth/login', loginHandler);
+app.post('/api/auth/login', loginLimiter, loginHandler);
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Bot Manager API běží' });
+// Prometheus metrics endpoint
+app.get('/metrics', async (req, res) => {
+  try {
+    res.set('Content-Type', metricsRegister.contentType);
+    res.end(await metricsRegister.metrics());
+  } catch (error) {
+    logger.error('Error generating metrics', { error: error.message });
+    res.status(500).end();
+  }
+});
+
+// Health check s database ping
+app.get('/api/health', async (req, res) => {
+  try {
+    // Ping databáze
+    await Bot.findOne();
+
+    res.json({
+      status: 'ok',
+      message: 'Bot Manager API běží',
+      database: 'connected',
+      demo: isDemoMode(),
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Health check failed', { error: error.message });
+    res.status(503).json({
+      status: 'error',
+      message: 'Health check selhal',
+      database: 'disconnected'
+    });
+  }
 });
 
 // Demo status check
@@ -83,7 +148,7 @@ app.get('/api/bots', async (req, res) => {
 
     res.json({ success: true, bots: botsWithStatus });
   } catch (error) {
-    console.error('❌ Chyba při získávání botů:', error);
+    logger.error('Error fetching bots', { error: error.message });
     res.status(500).json({ success: false, message: 'Chyba při načítání botů' });
   }
 });
@@ -106,30 +171,15 @@ app.get('/api/bots/:id', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('❌ Chyba při získávání bota:', error);
+    logger.error('Error fetching bot', { error: error.message });
     res.status(500).json({ success: false, message: 'Chyba při načítání bota' });
   }
 });
 
 // POST /api/bots - Přidat nového bota
-app.post('/api/bots', async (req, res) => {
+app.post('/api/bots', botOperationsLimiter, validateBotCreate, async (req, res) => {
   try {
     const { name, type, script_path, env_vars, auto_restart } = req.body;
-
-    // Validace
-    if (!name || !type || !script_path) {
-      return res.status(400).json({
-        success: false,
-        message: 'Název, typ a cesta ke scriptu jsou povinné'
-      });
-    }
-
-    if (!['nodejs', 'python'].includes(type)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Typ musí být "nodejs" nebo "python"'
-      });
-    }
 
     // V demo režimu jen vrátit success - nic se reálně neděje
     if (isDemoMode()) {
@@ -158,13 +208,13 @@ app.post('/api/bots', async (req, res) => {
       bot: bot.toJSON()
     });
   } catch (error) {
-    console.error('❌ Chyba při vytváření bota:', error);
+    logger.error('Error creating bot', { error: error.message });
     res.status(500).json({ success: false, message: 'Chyba při vytváření bota' });
   }
 });
 
 // PUT /api/bots/:id - Upravit konfiguraci bota
-app.put('/api/bots/:id', async (req, res) => {
+app.put('/api/bots/:id', botOperationsLimiter, validateBotUpdate, async (req, res) => {
   try {
     const bot = await Bot.findByPk(req.params.id);
     if (!bot) {
@@ -192,13 +242,13 @@ app.put('/api/bots/:id', async (req, res) => {
       bot: bot.toJSON()
     });
   } catch (error) {
-    console.error('❌ Chyba při úpravě bota:', error);
+    logger.error('Error updating bot', { error: error.message });
     res.status(500).json({ success: false, message: 'Chyba při úpravě bota' });
   }
 });
 
 // DELETE /api/bots/:id - Smazat bota
-app.delete('/api/bots/:id', async (req, res) => {
+app.delete('/api/bots/:id', botOperationsLimiter, validateBotId, async (req, res) => {
   try {
     const bot = await Bot.findByPk(req.params.id);
     if (!bot) {
@@ -214,7 +264,7 @@ app.delete('/api/bots/:id', async (req, res) => {
     try {
       await pm2Handler.deleteBot(bot.pm2_name);
     } catch (pm2Error) {
-      console.warn('⚠️ PM2 delete selhal (bot možná neběžel):', pm2Error.message);
+      logger.warn('PM2 delete failed (bot may not have been running)', { error: pm2Error.message });
     }
 
     // Smazat deploy history (pro kompatibilitu se starými záznamy bez CASCADE)
@@ -227,7 +277,7 @@ app.delete('/api/bots/:id', async (req, res) => {
 
     res.json({ success: true, message: 'Bot smazán' });
   } catch (error) {
-    console.error('❌ Chyba při mazání bota:', error);
+    logger.error('Error deleting bot', { error: error.message });
     res.status(500).json({ success: false, message: 'Chyba při mazání bota' });
   }
 });
@@ -235,7 +285,7 @@ app.delete('/api/bots/:id', async (req, res) => {
 // --- Process Control ---
 
 // POST /api/bots/:id/start - Spustit bota
-app.post('/api/bots/:id/start', async (req, res) => {
+app.post('/api/bots/:id/start', botOperationsLimiter, validateBotId, async (req, res) => {
   try {
     const bot = await Bot.findByPk(req.params.id);
     if (!bot) {
@@ -257,7 +307,7 @@ app.post('/api/bots/:id/start', async (req, res) => {
 
     res.json({ success: true, message: `Bot "${bot.name}" nastartován` });
   } catch (error) {
-    console.error('❌ Chyba při startu bota:', error);
+    logger.error('Error starting bot', { error: error.message });
 
     // Zalogovat selhání
     if (req.params.id && !isDemoMode()) {
@@ -277,7 +327,7 @@ app.post('/api/bots/:id/start', async (req, res) => {
 });
 
 // POST /api/bots/:id/stop - Zastavit bota
-app.post('/api/bots/:id/stop', async (req, res) => {
+app.post('/api/bots/:id/stop', botOperationsLimiter, validateBotId, async (req, res) => {
   try {
     const bot = await Bot.findByPk(req.params.id);
     if (!bot) {
@@ -299,7 +349,7 @@ app.post('/api/bots/:id/stop', async (req, res) => {
 
     res.json({ success: true, message: `Bot "${bot.name}" zastaven` });
   } catch (error) {
-    console.error('❌ Chyba při zastavení bota:', error);
+    logger.error('Error stopping bot', { error: error.message });
     res.status(500).json({
       success: false,
       message: 'Chyba při zastavení bota',
@@ -309,7 +359,7 @@ app.post('/api/bots/:id/stop', async (req, res) => {
 });
 
 // POST /api/bots/:id/restart - Restartovat bota
-app.post('/api/bots/:id/restart', async (req, res) => {
+app.post('/api/bots/:id/restart', botOperationsLimiter, validateBotId, async (req, res) => {
   try {
     const bot = await Bot.findByPk(req.params.id);
     if (!bot) {
@@ -329,9 +379,12 @@ app.post('/api/bots/:id/restart', async (req, res) => {
       action: 'restart'
     });
 
+    // Update Prometheus restart counter
+    incrementBotRestart(bot.name, bot.id);
+
     res.json({ success: true, message: `Bot "${bot.name}" restartován` });
   } catch (error) {
-    console.error('❌ Chyba při restartu bota:', error);
+    logger.error('Error restarting bot', { error: error.message });
     res.status(500).json({
       success: false,
       message: 'Chyba při restartu bota',
@@ -343,7 +396,7 @@ app.post('/api/bots/:id/restart', async (req, res) => {
 // --- Monitoring ---
 
 // GET /api/bots/:id/logs - Získat logy
-app.get('/api/bots/:id/logs', async (req, res) => {
+app.get('/api/bots/:id/logs', validateLogsQuery, async (req, res) => {
   try {
     const bot = await Bot.findByPk(req.params.id);
     if (!bot) {
@@ -358,7 +411,7 @@ app.get('/api/bots/:id/logs', async (req, res) => {
       logs
     });
   } catch (error) {
-    console.error('❌ Chyba při načítání logů:', error);
+    logger.error('Error fetching logs', { error: error.message });
     res.status(500).json({
       success: false,
       message: 'Chyba při načítání logů',
@@ -381,13 +434,13 @@ app.get('/api/bots/:id/history', async (req, res) => {
       history
     });
   } catch (error) {
-    console.error('❌ Chyba při načítání historie:', error);
+    logger.error('Error fetching history', { error: error.message });
     res.status(500).json({ success: false, message: 'Chyba při načítání historie' });
   }
 });
 
 // GET /api/bots/:id/metrics - Metriky CPU/Memory
-app.get('/api/bots/:id/metrics', async (req, res) => {
+app.get('/api/bots/:id/metrics', validateMetricsQuery, async (req, res) => {
   try {
     const { Sequelize } = require('sequelize');
     const Op = Sequelize.Op;
@@ -411,7 +464,7 @@ app.get('/api/bots/:id/metrics', async (req, res) => {
       metrics
     });
   } catch (error) {
-    console.error('❌ Chyba při načítání metrik:', error);
+    logger.error('Error fetching metrics', { error: error.message });
     res.status(500).json({ success: false, message: 'Chyba při načítání metrik' });
   }
 });
@@ -462,26 +515,41 @@ app.get('/api/stats', async (req, res) => {
 
     res.json({ success: true, stats });
   } catch (error) {
-    console.error('❌ Chyba při načítání statistik:', error);
+    logger.error('Error fetching stats', { error: error.message });
     res.status(500).json({ success: false, message: 'Chyba při načítání statistik' });
   }
 });
 
 // POST /api/parse-env - Načíst .env soubor z dané cesty
-app.post('/api/parse-env', authenticateToken, async (req, res) => {
+app.post('/api/parse-env', authenticateToken, validateParseEnv, async (req, res) => {
   try {
     const { script_path } = req.body;
-
-    if (!script_path) {
-      return res.status(400).json({ success: false, message: 'script_path je povinný' });
-    }
 
     const fs = require('fs');
     const path = require('path');
 
-    // Získat složku ze script_path
-    const scriptDir = path.dirname(script_path);
+    // Získat složku ze script_path a normalizovat cestu
+    const normalizedPath = path.normalize(script_path);
+    const scriptDir = path.dirname(normalizedPath);
     const envPath = path.join(scriptDir, '.env');
+
+    // Další bezpečnostní kontrola - zajistit že cesta neobsahuje zakázané vzory
+    const resolvedEnvPath = path.resolve(envPath);
+    if (resolvedEnvPath.includes('..') ||
+        resolvedEnvPath.startsWith('/etc') ||
+        resolvedEnvPath.startsWith('/root') ||
+        resolvedEnvPath.startsWith('/sys') ||
+        resolvedEnvPath.startsWith('/proc')) {
+      logger.warn('Path traversal attempt detected', {
+        ip: req.ip,
+        user: req.user?.username,
+        attempted_path: script_path
+      });
+      return res.status(403).json({
+        success: false,
+        message: 'Přístup k této cestě je zakázán'
+      });
+    }
 
     // Zkontrolovat jestli .env existuje
     if (!fs.existsSync(envPath)) {
@@ -525,7 +593,7 @@ app.post('/api/parse-env', authenticateToken, async (req, res) => {
       message: `Načteno ${Object.keys(envVars).length} proměnných z .env`
     });
   } catch (error) {
-    console.error('❌ Chyba při čtení .env:', error);
+    logger.error('Error reading .env file', { error: error.message });
     res.status(500).json({
       success: false,
       message: 'Chyba při čtení .env souboru',
@@ -540,10 +608,12 @@ app.post('/api/parse-env', authenticateToken, async (req, res) => {
 
 // WebSocket handling
 io.on('connection', (socket) => {
-  console.log('🔌 Client připojen:', socket.id);
+  logger.info('WebSocket client connected', { socketId: socket.id });
+  setWebSocketConnections(io.engine.clientsCount);
 
   socket.on('disconnect', () => {
-    console.log('❌ Client odpojen:', socket.id);
+    logger.info('WebSocket client disconnected', { socketId: socket.id });
+    setWebSocketConnections(io.engine.clientsCount);
   });
 });
 
@@ -572,21 +642,27 @@ async function broadcastBotStatus() {
       })
     );
 
+    // Update Prometheus metriky
+    updateBotMetrics(botsWithStatus);
+
     io.emit('bots:update', botsWithStatus);
-    console.log(`📡 Broadcast: ${botsWithStatus.length} botů odesláno (${botsWithStatus.filter(b => b.status === 'online').length} online)`);
+    logger.debug('Bot status broadcast', {
+      total: botsWithStatus.length,
+      online: botsWithStatus.filter(b => b.status === 'online').length
+    });
   } catch (error) {
-    console.error('❌ Chyba při broadcastu statusu:', error);
+    logger.error('Error broadcasting bot status', { error: error.message });
   }
 }
 
 // Seed demo data pro in-memory databázi
 async function seedDemoData() {
-  console.log('🌱 Seeduji demo data...');
+  logger.info('Seeding demo data...');
 
   // Zkontrolovat, jestli už data neexistují
   const existingUser = await User.findOne({ where: { username: 'demo' } });
   if (existingUser) {
-    console.log('✅ Demo data už existují, přeskakuji seeding');
+    logger.info('Demo data already exists, skipping seeding');
     return;
   }
 
@@ -662,55 +738,78 @@ async function seedDemoData() {
     }
   }
 
-  console.log('✅ Demo data seednutá (demo/demo)');
+  logger.info('Demo data seeded successfully (login: demo/demo)');
 }
 
 async function startServer() {
   try {
     // Připojit k databázi
     await initDatabase();
+    logger.info('Database initialized');
 
     // Pokud je demo režim, seed data
     if (isDemoMode()) {
       await seedDemoData();
+      logger.info('Demo mode active');
     }
 
     // Připojit k PM2
     await pm2Handler.connectPM2();
+    logger.info('PM2 connected');
 
     // Spustit Express server
     server.listen(PORT, () => {
-      console.log(`🚀 Bot Manager API běží na http://localhost:${PORT}`);
-      console.log(`🔌 WebSocket server aktivní`);
-      console.log(`📝 Endpoints:`);
-      console.log(`   POST   /api/auth/login`);
-      console.log(`   GET    /api/bots`);
-      console.log(`   POST   /api/bots`);
-      console.log(`   GET    /api/bots/:id`);
-      console.log(`   PUT    /api/bots/:id`);
-      console.log(`   DELETE /api/bots/:id`);
-      console.log(`   POST   /api/bots/:id/start`);
-      console.log(`   POST   /api/bots/:id/stop`);
-      console.log(`   POST   /api/bots/:id/restart`);
-      console.log(`   GET    /api/bots/:id/logs`);
-      console.log(`   GET    /api/bots/:id/history`);
-      console.log(`   GET    /api/stats`);
+      logger.info(`Bot Manager API running on http://localhost:${PORT}`);
+      logger.info('WebSocket server active');
+      logger.info('Available endpoints:', {
+        auth: 'POST /api/auth/login',
+        metrics: 'GET /metrics',
+        health: 'GET /api/health',
+        bots: [
+          'GET /api/bots',
+          'POST /api/bots',
+          'GET /api/bots/:id',
+          'PUT /api/bots/:id',
+          'DELETE /api/bots/:id',
+          'POST /api/bots/:id/start',
+          'POST /api/bots/:id/stop',
+          'POST /api/bots/:id/restart',
+          'GET /api/bots/:id/logs',
+          'GET /api/bots/:id/history',
+          'GET /api/bots/:id/metrics'
+        ],
+        stats: 'GET /api/stats'
+      });
     });
 
     // Spustit broadcast statusu každých 3 sekundy
     setInterval(broadcastBotStatus, 3000);
-    console.log('⏱️  Real-time updates aktivní (každých 3s)');
+    logger.info('Real-time updates active (every 3s)');
   } catch (error) {
-    console.error('❌ Chyba při startu serveru:', error);
+    logger.error('Server startup failed', { error: error.message, stack: error.stack });
     process.exit(1);
   }
 }
 
 // Graceful shutdown
 process.on('SIGINT', () => {
-  console.log('\n⚠️ Zastavuji server...');
+  logger.warn('Server shutdown initiated');
   pm2Handler.disconnectPM2();
-  process.exit(0);
+  server.close(() => {
+    logger.info('Server closed successfully');
+    process.exit(0);
+  });
+});
+
+// Uncaught exception handler
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception', { error: error.message, stack: error.stack });
+  process.exit(1);
+});
+
+// Unhandled promise rejection handler
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection', { reason, promise });
 });
 
 startServer();
