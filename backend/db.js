@@ -1,6 +1,7 @@
 const { Sequelize, DataTypes } = require('sequelize');
 const path = require('path');
 require('dotenv').config();
+const logger = require('./logger');
 
 // SQLite databáze
 const dbPath = process.env.DB_PATH || '../bot-manager.db';
@@ -69,7 +70,15 @@ const Bot = sequelize.define('Bot', {
   tableName: 'bots',
   timestamps: true,
   createdAt: 'created_at',
-  updatedAt: 'updated_at'
+  updatedAt: 'updated_at',
+  indexes: [
+    {
+      fields: ['pm2_name']
+    },
+    {
+      fields: ['created_at']
+    }
+  ]
 });
 
 // Model: Deploy History (logování akcí)
@@ -102,7 +111,15 @@ const DeployHistory = sequelize.define('DeployHistory', {
   }
 }, {
   tableName: 'deploy_history',
-  timestamps: false
+  timestamps: false,
+  indexes: [
+    {
+      fields: ['bot_id', 'timestamp']
+    },
+    {
+      fields: ['timestamp']
+    }
+  ]
 });
 
 // Model: Bot Metrics (CPU/Memory historie)
@@ -154,12 +171,12 @@ BotMetrics.belongsTo(Bot, { foreignKey: 'bot_id' });
 async function initDatabase() {
   try {
     await sequelize.authenticate();
-    console.log('✅ Připojení k SQLite databázi úspěšné');
+    logger.info('SQLite database connection successful');
 
     await sequelize.sync();
-    console.log('✅ Databázové modely synchronizovány');
+    logger.info('Database models synchronized');
   } catch (error) {
-    console.error('❌ Chyba při připojení k databázi:', error);
+    logger.error('Database connection failed', { error: error.message, stack: error.stack });
     process.exit(1);
   }
 }
